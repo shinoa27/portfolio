@@ -17,30 +17,51 @@
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+        /* 進場動畫設定 */
         .reveal-up {
             opacity: 0;
-            transform: translateY(120px);
-            transition: opacity 1.8s cubic-bezier(0.16, 1, 0.3, 1), 
-                        transform 1.8s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(80px);
+            transition: opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1), 
+                        transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .reveal-up.is-visible { opacity: 1; transform: translateY(0); }
 
+        /* 卡片基礎設定與環境光暈 */
         .apple-card {
             background-color: #1c1c1e;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* 懸停時的頂部微弱光暈效果 */
+        .apple-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 40%;
+            background: radial-gradient(ellipse at top, rgba(255,255,255,0.08) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+            z-index: 0;
         }
 
         .flip-card {
             perspective: 1500px;
-            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .flip-card:hover { transform: translateY(-4px); }
+        .flip-card:hover { transform: translateY(-6px); }
         .flip-card:hover .apple-card {
             background-color: #242426;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255,255,255,0.05);
+        }
+        .flip-card:hover .apple-card::before {
+            opacity: 1;
         }
 
+        /* 卡片翻轉邏輯 */
         .flip-card-inner {
             position: relative;
             width: 100%;
@@ -58,11 +79,36 @@
             height: 100%;
             -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
+            transition: z-index 0.5s;
         }
-        .flip-card-back { transform: rotateY(180deg); }
+        
+        /* 修正：加入 3D 層級與點擊穿透動態防護 */
+        .flip-card-front { z-index: 2; }
+        .flip-card-back { 
+            transform: rotateY(180deg); 
+            z-index: 1;
+            pointer-events: none; /* 未翻轉時，背面不接收任何點擊 */
+        }
+        
+        /* 當卡片翻轉時，動態切換層級與點擊權限 */
+        .flip-card-inner.is-flipped .flip-card-front {
+            z-index: 1;
+            pointer-events: none; /* 翻轉後禁用正面點擊，消除隱形遮擋 */
+        }
+        .flip-card-inner.is-flipped .flip-card-back {
+            z-index: 2;
+            pointer-events: auto; /* 翻轉後全面啟用背面點擊 */
+        }
 
+        /* 卡片內部元素層級確保在光暈之上 */
+        .card-content-z {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 文字漸層特效 */
         .text-gradient {
-            background: linear-gradient(135deg, #ffffff 0%, #888888 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #737373 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             padding-bottom: 0.15em; 
@@ -72,77 +118,93 @@
 </head>
 <body class="antialiased selection:bg-gray-800 selection:text-white">
 
-    <nav class="fixed w-full z-50 top-0 bg-black/50 backdrop-blur-xl border-b border-white/10 transition-all duration-300">
+    <!-- 導覽列 -->
+    <nav id="navbar" class="fixed w-full z-50 top-0 bg-transparent border-b border-transparent transition-all duration-500">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-14 items-center">
-                <div class="text-lg font-medium tracking-wide text-white/90">Portfolio.</div>
+            <div class="flex justify-between h-16 items-center">
+                <div class="text-lg font-medium tracking-wide text-white/90 cursor-pointer" onclick="window.scrollTo(0,0)">Portfolio.</div>
                 <div class="flex space-x-8">
-                    <a href="#philosophy" class="text-white/70 hover:text-white text-xs font-medium tracking-widest transition-colors">理念</a>
-                    <a href="#projects" class="text-white/70 hover:text-white text-xs font-medium tracking-widest transition-colors">專案</a>
+                    <a href="#philosophy" class="text-white/60 hover:text-white text-xs font-medium tracking-widest transition-colors">理念</a>
+                    <a href="#projects" class="text-white/60 hover:text-white text-xs font-medium tracking-widest transition-colors">專案</a>
                 </div>
             </div>
         </div>
     </nav>
 
+    <!-- 首屏視覺區塊 -->
     <header class="relative min-h-screen flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 text-center pt-20">
         <div class="max-w-5xl mx-auto reveal-up">
-            <h2 class="text-gray-400 font-semibold tracking-widest text-sm uppercase mb-6">High School Project</h2>
-            <h1 class="text-7xl sm:text-[8rem] font-bold tracking-tight mb-8 text-gradient">Vibecoding.</h1>
-            <p class="text-xl sm:text-3xl text-gray-400 font-medium max-w-3xl mx-auto leading-loose mb-16">
+            <h2 class="text-gray-500 font-semibold tracking-[0.2em] text-xs uppercase mb-6">High School Project</h2>
+            <h1 class="text-6xl sm:text-[8rem] font-bold tracking-tight mb-8 text-gradient">Vibecoding.</h1>
+            <p class="text-xl sm:text-2xl text-gray-400 font-medium max-w-3xl mx-auto leading-loose mb-16">
                 透過自然語言與 AI 協作，<br />將想像力轉化為真實的應用程式。
             </p>
-            <a href="#projects" class="inline-flex items-center justify-center px-8 py-4 text-base font-medium rounded-full text-black bg-white hover:bg-gray-200 transition-all duration-300 hover:scale-105 active:scale-95">
+            <a href="#projects" class="inline-flex items-center justify-center px-8 py-4 text-sm font-medium rounded-full text-black bg-white hover:bg-gray-200 transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]">
                 探索專案
             </a>
         </div>
-        <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce opacity-40">
+        <div class="absolute bottom-12 left-1/2 transform -translate-x-1/2 animate-bounce opacity-40">
             <i data-lucide="chevron-down" class="w-6 h-6"></i>
         </div>
     </header>
 
+    <!-- 理念區塊 -->
     <section id="philosophy" class="py-32 sm:py-48 bg-black relative">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center reveal-up">
-            <h2 class="text-4xl sm:text-5xl font-bold tracking-tight leading-normal mb-12">程式碼不再只是語法，<br />而是思維的延伸。</h2>
-            <p class="text-lg sm:text-2xl text-gray-400 mx-auto leading-loose">
+            <h2 class="text-3xl sm:text-5xl font-bold tracking-tight leading-normal mb-12">程式碼不再只是語法，<br />而是思維的延伸。</h2>
+            <p class="text-base sm:text-xl text-gray-400 mx-auto leading-loose text-justify sm:text-center">
                 在這次自主學習中，我放棄了傳統死記硬背語法的方式。透過精準的提示詞（Prompt Engineering）與 AI 進行架構討論、邏輯推演與錯誤排除。最大的挑戰不在於寫出程式碼，而在於如何「正確定義問題」並「驗證 AI 的解答」。
             </p>
         </div>
     </section>
 
+    <!-- 專案展示區塊 -->
     <section id="projects" class="py-24 sm:py-32 bg-[#000000]">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-left mb-16 reveal-up pl-4 border-l-4 border-white">
+            <div class="text-left mb-16 reveal-up pl-5 border-l-2 border-white/80">
                 <h2 class="text-4xl sm:text-5xl font-bold tracking-tight mb-4">實作成果。</h2>
-                <p class="text-xl text-gray-400">三個專案，展現前端互動、邏輯運算與數據分析能力。</p>
+                <p class="text-lg sm:text-xl text-gray-400 font-light">三個專案，展現前端互動、邏輯運算與數據分析能力。（點擊下方連結前往網站）</p>
             </div>
             
-            <div class="flex overflow-x-auto md:grid md:grid-cols-3 gap-6 sm:gap-8 pb-10 snap-x snap-mandatory hide-scrollbar">
+            <!-- 將 md:grid-cols-3 改為 lg:grid-cols-2 以適應 16:9 比例所需的寬度 -->
+            <div class="flex overflow-x-auto lg:grid lg:grid-cols-2 gap-6 sm:gap-8 pb-10 snap-x snap-mandatory hide-scrollbar">
                 
                 <!-- 專案一：打字練習網 -->
-                <div class="reveal-up min-w-[85vw] sm:min-w-[60vw] md:min-w-0 snap-center flip-card h-[400px]">
+                <!-- 移除 h-[420px]，套用 aspect-video 強制 16:9 比例 -->
+                <div class="reveal-up min-w-[90vw] sm:min-w-[75vw] lg:min-w-0 snap-center flip-card aspect-video">
                     <div class="flip-card-inner">
-                        <div class="flip-card-front apple-card rounded-3xl p-8 flex flex-col items-start text-left h-full group">
-                            <h3 class="text-3xl font-semibold mb-4 text-white tracking-tight mt-2">打字練習網</h3>
-                            <p class="text-gray-400 text-sm leading-relaxed mb-6 flex-grow">
-                                簡潔介面，可調整打n段暫時休息，並記錄階段wpm，純前端實作。新聞功能可憐限制最新新聞作為打字練習。運用 JavaScript 監聽鍵盤事件，計算打字速度與準確率，並提供即時反饋。
-                            </p>
-                            <div class="flex items-center justify-between w-full mt-auto">
-                                <a href="./typing-app/index.html" class="text-blue-400 font-medium text-sm flex items-center hover:text-blue-300 transition-colors">
-                                    啟動應用 <i data-lucide="arrow-right" class="w-4 h-4 ml-1"></i>
-                                </a>
-                                <button class="flip-btn group/btn relative flex items-center justify-center w-10 h-10 bg-neutral-800/80 hover:bg-white text-white hover:text-black rounded-full transition-all duration-300 border border-white/10">
-                                    <i data-lucide="plus" class="w-5 h-5 transition-transform duration-300 group-hover/btn:rotate-90"></i>
-                                </button>
+                        <!-- 縮減內部 p-8 為 p-4 sm:p-6 以節省垂直空間 -->
+                        <div class="flip-card-front apple-card rounded-3xl p-4 sm:p-6 flex flex-col items-start text-left h-full group">
+                            <div class="card-content-z flex flex-col h-full w-full">
+                                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-3 sm:mb-5 border border-white/10 shrink-0">
+                                    <i data-lucide="keyboard" class="w-5 h-5 sm:w-6 sm:h-6 text-white/80"></i>
+                                </div>
+                                <h3 class="text-lg sm:text-2xl font-semibold mb-2 text-white tracking-tight shrink-0">打字練習網</h3>
+                                <!-- 引入 line-clamp-2 (手機) 與 line-clamp-4 (桌機) 防止文字溢出 -->
+                                <p class="text-gray-400 text-xs sm:text-sm leading-relaxed mb-3 flex-grow line-clamp-2 sm:line-clamp-4 overflow-hidden">
+                                    簡潔介面，可自訂段落長度與休息時間，並記錄階段 WPM，純前端實作。具備新聞模式，可擷取最新新聞作為打字練習素材。運用 JavaScript 監聽鍵盤事件，計算打字速度與準確率，並提供即時反饋。
+                                </p>
+                                <div class="flex items-center justify-between w-full mt-auto shrink-0">
+                                    <a href="./typing-app/index.html" class="text-blue-400 font-medium text-xs sm:text-sm flex items-center hover:text-blue-300 transition-colors">
+                                        啟動應用 <i data-lucide="arrow-right" class="w-4 h-4 ml-1"></i>
+                                    </a>
+                                    <button class="flip-btn group/btn relative flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-neutral-800/80 hover:bg-white text-white hover:text-black rounded-full transition-all duration-300 border border-white/10">
+                                        <!-- 修正：將 image 改為 play，並微調大小確保視覺平衡 -->
+                                        <i data-lucide="play" class="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-0.5 transition-transform duration-300 group-hover/btn:scale-110"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="flip-card-back apple-card rounded-3xl p-2 flex flex-col h-full">
-                            <div class="relative w-full h-full rounded-2xl overflow-hidden bg-neutral-800/50 flex flex-col border border-white/5">
+                            <!-- 修正：移除 flex flex-col 依賴，避免 3D 渲染器誤判 -->
+                            <div class="relative w-full h-full rounded-2xl overflow-hidden bg-neutral-900 border border-white/5">
                                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <img src="./typing-app/typing-preview.jpg" alt="打字練習網預覽" class="w-full h-full object-cover rounded-2xl" onerror="this.style.opacity='0'">
+                                    <video src="./typing-app/typing-preview.mp4" class="w-full h-full object-cover rounded-2xl" autoplay loop muted playsinline poster="./typing-app/typing-preview.jpg"></video>
                                 </div>
-                                <div class="z-10 flex justify-end p-4">
-                                    <button class="flip-back-btn bg-black/40 hover:bg-black/60 text-white/80 hover:text-white rounded-full p-2 backdrop-blur-md transition-colors cursor-pointer">
-                                        <i data-lucide="x" class="w-4 h-4"></i>
+                                <!-- 修正：改用純絕對定位，並加入 translateZ(10px) 強制突破 3D 深度限制 -->
+                                <div class="absolute top-2 right-2 sm:top-4 sm:right-4 z-50" style="transform: translateZ(10px);">
+                                    <button class="flip-back-btn bg-black/60 hover:bg-white hover:text-black text-white rounded-full p-2 backdrop-blur-md transition-all duration-300 cursor-pointer shadow-lg">
+                                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
                                     </button>
                                 </div>
                             </div>
@@ -151,30 +213,38 @@
                 </div>
 
                 <!-- 專案二：恐怖遊戲 -->
-                <div class="reveal-up min-w-[85vw] sm:min-w-[60vw] md:min-w-0 snap-center flip-card h-[400px]" style="transition-delay: 100ms;">
+                <div class="reveal-up min-w-[90vw] sm:min-w-[75vw] lg:min-w-0 snap-center flip-card aspect-video" style="transition-delay: 100ms;">
                     <div class="flip-card-inner">
-                        <div class="flip-card-front apple-card rounded-3xl p-8 flex flex-col items-start text-left h-full group">
-                            <h3 class="text-3xl font-semibold mb-4 text-white tracking-tight mt-2">互動恐怖遊戲</h3>
-                            <p class="text-gray-400 text-sm leading-relaxed mb-6 flex-grow">
-                                純前端實作的沉浸式體驗，內有不少嚇人場景及音效，如有心臟病或癲顯患者不宜遊玩。運用 HTML5 Canvas 繪圖或動態 CSS 製造視覺盲區與音效觸發機制。
-                            </p>
-                            <div class="flex items-center justify-between w-full mt-auto">
-                                <a href="./horror-game/index.html" class="text-red-400 font-medium text-sm flex items-center hover:text-red-300 transition-colors">
-                                    開始遊戲 <i data-lucide="arrow-right" class="w-4 h-4 ml-1"></i>
-                                </a>
-                                <button class="flip-btn group/btn relative flex items-center justify-center w-10 h-10 bg-neutral-800/80 hover:bg-white text-white hover:text-black rounded-full transition-all duration-300 border border-white/10">
-                                    <i data-lucide="plus" class="w-5 h-5 transition-transform duration-300 group-hover/btn:rotate-90"></i>
-                                </button>
+                        <div class="flip-card-front apple-card rounded-3xl p-4 sm:p-6 flex flex-col items-start text-left h-full group">
+                            <div class="card-content-z flex flex-col h-full w-full">
+                                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-3 sm:mb-5 border border-white/10 shrink-0">
+                                    <i data-lucide="ghost" class="w-5 h-5 sm:w-6 sm:h-6 text-white/80"></i>
+                                </div>
+                                <h3 class="text-lg sm:text-2xl font-semibold mb-2 text-white tracking-tight shrink-0">互動恐怖遊戲</h3>
+                                <p class="text-gray-400 text-xs sm:text-sm leading-relaxed mb-3 flex-grow line-clamp-2 sm:line-clamp-4 overflow-hidden">
+                                    純前端實作的沉浸式體驗，內有突發驚嚇（Jump Scare）場景及氛圍音效，心臟病或癲癇患者不宜遊玩。技術上運用 HTML5 Canvas 繪圖與動態 CSS 遮罩製造視覺盲區，結合音效觸發機制增強帶入感。
+                                </p>
+                                <div class="flex items-center justify-between w-full mt-auto shrink-0">
+                                    <a href="./horror-game/index.html" class="text-red-400 font-medium text-xs sm:text-sm flex items-center hover:text-red-300 transition-colors">
+                                        開始遊戲 <i data-lucide="arrow-right" class="w-4 h-4 ml-1"></i>
+                                    </a>
+                                    <button class="flip-btn group/btn relative flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-neutral-800/80 hover:bg-white text-white hover:text-black rounded-full transition-all duration-300 border border-white/10">
+                                        <!-- 修正：將 image 改為 play，並微調大小確保視覺平衡 -->
+                                        <i data-lucide="play" class="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-0.5 transition-transform duration-300 group-hover/btn:scale-110"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="flip-card-back apple-card rounded-3xl p-2 flex flex-col h-full">
-                            <div class="relative w-full h-full rounded-2xl overflow-hidden bg-neutral-800/50 flex flex-col border border-white/5">
+                            <!-- 修正：移除 flex flex-col 依賴，避免 3D 渲染器誤判 -->
+                            <div class="relative w-full h-full rounded-2xl overflow-hidden bg-neutral-900 border border-white/5">
                                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <img src="./horror-game/horror-preview.jpg" alt="恐怖遊戲預覽" class="w-full h-full object-cover rounded-2xl" onerror="this.style.opacity='0'">
+                                    <video src="./horror-game/horror-preview.mp4" class="w-full h-full object-cover rounded-2xl" autoplay loop muted playsinline poster="./horror-game/horror-preview.jpg"></video>
                                 </div>
-                                <div class="z-10 flex justify-end p-4">
-                                    <button class="flip-back-btn bg-black/40 hover:bg-black/60 text-white/80 hover:text-white rounded-full p-2 backdrop-blur-md transition-colors cursor-pointer">
-                                        <i data-lucide="x" class="w-4 h-4"></i>
+                                <!-- 修正：改用純絕對定位，並加入 translateZ(10px) 強制突破 3D 深度限制 -->
+                                <div class="absolute top-2 right-2 sm:top-4 sm:right-4 z-50" style="transform: translateZ(10px);">
+                                    <button class="flip-back-btn bg-black/60 hover:bg-white hover:text-black text-white rounded-full p-2 backdrop-blur-md transition-all duration-300 cursor-pointer shadow-lg">
+                                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
                                     </button>
                                 </div>
                             </div>
@@ -182,32 +252,39 @@
                     </div>
                 </div>
 
-                <!-- 專案三：Python 分析 (已修改為 Streamlit 外部連結) -->
-                <div class="reveal-up min-w-[85vw] sm:min-w-[60vw] md:min-w-0 snap-center flip-card h-[400px]" style="transition-delay: 200ms;">
+                <!-- 專案三：Python 分析 -->
+                <div class="reveal-up min-w-[90vw] sm:min-w-[75vw] lg:min-w-0 snap-center flip-card aspect-video" style="transition-delay: 200ms;">
                     <div class="flip-card-inner">
-                        <div class="flip-card-front apple-card rounded-3xl p-8 flex flex-col items-start text-left h-full group">
-                            <h3 class="text-3xl font-semibold mb-4 text-white tracking-tight mt-2">Python 分析</h3>
-                            <p class="text-gray-400 text-sm leading-relaxed mb-6 flex-grow">
-                                部署於 Streamlit 伺服器。運用 Python 進行資料清洗與視覺化處理，展示柱狀圖、回歸直線與洞察報告等等。
-                            </p>
-                            <div class="flex items-center justify-between w-full mt-auto">
-                                <!-- 請將 href 中的網址替換為你實際的 Streamlit 應用程式網址 -->
-                                <a href="https://python-regression-app-bwrqbrfnjvarjdk9juncjl.streamlit.app/" target="_blank" rel="noopener noreferrer" class="text-emerald-400 font-medium text-sm flex items-center hover:text-emerald-300 transition-colors">
-                                    查看報告 <i data-lucide="external-link" class="w-4 h-4 ml-1"></i>
-                                </a>
-                                <button class="flip-btn group/btn relative flex items-center justify-center w-10 h-10 bg-neutral-800/80 hover:bg-white text-white hover:text-black rounded-full transition-all duration-300 border border-white/10">
-                                    <i data-lucide="plus" class="w-5 h-5 transition-transform duration-300 group-hover/btn:rotate-90"></i>
-                                </button>
+                        <div class="flip-card-front apple-card rounded-3xl p-4 sm:p-6 flex flex-col items-start text-left h-full group">
+                            <div class="card-content-z flex flex-col h-full w-full">
+                                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-3 sm:mb-5 border border-white/10 shrink-0">
+                                    <i data-lucide="bar-chart-2" class="w-5 h-5 sm:w-6 sm:h-6 text-white/80"></i>
+                                </div>
+                                <h3 class="text-lg sm:text-2xl font-semibold mb-2 text-white tracking-tight shrink-0">Python 數據分析</h3>
+                                <p class="text-gray-400 text-xs sm:text-sm leading-relaxed mb-3 flex-grow line-clamp-2 sm:line-clamp-4 overflow-hidden">
+                                    應用程式部署於 Streamlit 伺服器。運用 Python 進行資料清洗與視覺化處理，支援即時動態參數調整，並於網頁端展示柱狀圖、迴歸直線模型與自動化洞察報告。
+                                </p>
+                                <div class="flex items-center justify-between w-full mt-auto shrink-0">
+                                    <a href="https://python-regression-app-bwrqbrfnjvarjdk9juncjl.streamlit.app/" target="_blank" rel="noopener noreferrer" class="text-emerald-400 font-medium text-xs sm:text-sm flex items-center hover:text-emerald-300 transition-colors">
+                                        查看報告 <i data-lucide="external-link" class="w-4 h-4 ml-1"></i>
+                                    </a>
+                                    <button class="flip-btn group/btn relative flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-neutral-800/80 hover:bg-white text-white hover:text-black rounded-full transition-all duration-300 border border-white/10">
+                                        <!-- 修正：將 image 改為 play，並微調大小確保視覺平衡 -->
+                                        <i data-lucide="play" class="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-0.5 transition-transform duration-300 group-hover/btn:scale-110"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         <div class="flip-card-back apple-card rounded-3xl p-2 flex flex-col h-full">
-                            <div class="relative w-full h-full rounded-2xl overflow-hidden bg-neutral-800/50 flex flex-col border border-white/5">
+                            <!-- 修正：移除 flex flex-col 依賴，避免 3D 渲染器誤判 -->
+                            <div class="relative w-full h-full rounded-2xl overflow-hidden bg-neutral-900 border border-white/5">
                                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <img src="./data-analysis/data-preview.jpg" alt="Python 分析預覽" class="w-full h-full object-cover rounded-2xl" onerror="this.style.opacity='0'">
+                                    <video src="./data-analysis/data-preview.mp4" class="w-full h-full object-cover rounded-2xl" autoplay loop muted playsinline poster="./data-analysis/data-preview.jpg"></video>
                                 </div>
-                                <div class="z-10 flex justify-end p-4">
-                                    <button class="flip-back-btn bg-black/40 hover:bg-black/60 text-white/80 hover:text-white rounded-full p-2 backdrop-blur-md transition-colors cursor-pointer">
-                                        <i data-lucide="x" class="w-4 h-4"></i>
+                                <!-- 修正：改用純絕對定位，並加入 translateZ(10px) 強制突破 3D 深度限制 -->
+                                <div class="absolute top-2 right-2 sm:top-4 sm:right-4 z-50" style="transform: translateZ(10px);">
+                                    <button class="flip-back-btn bg-black/60 hover:bg-white hover:text-black text-white rounded-full p-2 backdrop-blur-md transition-all duration-300 cursor-pointer shadow-lg">
+                                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
                                     </button>
                                 </div>
                             </div>
@@ -219,17 +296,32 @@
         </div>
     </section>
 
-    <footer class="py-16 border-t border-white/5 bg-black text-center">
+    <!-- 頁尾 -->
+    <footer class="py-12 border-t border-white/5 bg-black text-center">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center reveal-up">
-            <div class="text-xl font-bold tracking-widest mb-6 opacity-40 uppercase">Portfolio.</div>
-            <p class="text-gray-600 text-sm">&copy; 2026 高中自主學習計畫. Designed with AI.</p>
+            <div class="text-lg font-bold tracking-[0.3em] mb-4 opacity-30 uppercase">Portfolio.</div>
+            <p class="text-gray-600 text-xs tracking-wider">&copy; 2026 高中自主學習計畫. Designed with AI.</p>
         </div>
     </footer>
 
     <script>
+        // 初始化 Lucide 圖示
         lucide.createIcons();
 
         document.addEventListener("DOMContentLoaded", () => {
+            // 導覽列滾動特效監聽
+            const navbar = document.getElementById('navbar');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 50) {
+                    navbar.classList.add('bg-black/70', 'backdrop-blur-xl', 'border-white/10');
+                    navbar.classList.remove('bg-transparent', 'border-transparent');
+                } else {
+                    navbar.classList.add('bg-transparent', 'border-transparent');
+                    navbar.classList.remove('bg-black/70', 'backdrop-blur-xl', 'border-white/10');
+                }
+            });
+
+            // 滾動漸現動畫觀察者
             const observerOptions = { root: null, rootMargin: '0px', threshold: 0.15 };
             const observer = new IntersectionObserver((entries, observer) => {
                 entries.forEach(entry => {
@@ -242,6 +334,7 @@
 
             document.querySelectorAll('.reveal-up').forEach(el => observer.observe(el));
 
+            // 卡片翻轉互動綁定
             document.querySelectorAll('.flip-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
