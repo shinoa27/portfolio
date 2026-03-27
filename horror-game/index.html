@@ -1,0 +1,1596 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>回音：深淵 (ECHOES: THE DESCENT)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Noto+Serif+TC:wght@400;700;900&family=Special+Elite&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            margin: 0; overflow: hidden; background-color: #000; 
+            user-select: none; color: #fff;
+            font-family: 'Noto Serif TC', serif;
+        }
+
+        #game-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+
+        /* --- 視覺濾鏡與雜訊 --- */
+        #vhs-filter {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.85) 100%);
+            z-index: 5; pointer-events: none; transition: background 0.5s;
+        }
+        
+        #film-grain {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.08"/%3E%3C/svg%3E');
+            z-index: 6; pointer-events: none; mix-blend-mode: overlay;
+            animation: grain 0.08s steps(2) infinite;
+        }
+
+        .scanlines {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.15));
+            background-size: 100% 4px; z-index: 7; pointer-events: none;
+        }
+
+        #danger-static {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: url('data:image/svg+xml,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="3" stitchTiles="stitch"/%3E%3CfeColorMatrix type="matrix" values="1 0 0 0 0, 0 0.1 0 0 0, 0 0.1 0 0 0, 0 0 0 4 -1"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noise)" opacity="1"/%3E%3C/svg%3E');
+            opacity: 0; z-index: 8; pointer-events: none; mix-blend-mode: screen;
+            transition: opacity 0.3s;
+        }
+
+        /* 突發驚嚇 (Jump Scare) */
+        #jumpscare-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 800 600' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='%23000' /%3E%3Cg filter='url(%23distort)'%3E%3Cellipse cx='400' cy='300' rx='150' ry='250' fill='%23fff' opacity='0.9' filter='blur(4px)' /%3E%3Ccircle cx='330' cy='230' r='40' fill='%23000' /%3E%3Ccircle cx='470' cy='230' r='40' fill='%23000' /%3E%3Cellipse cx='400' cy='400' rx='60' ry='100' fill='%23000' /%3E%3Cpath d='M330 270 L300 450 M470 270 L500 450' stroke='%23000' stroke-width='20' filter='blur(3px)' /%3E%3C/g%3E%3Cdefs%3E%3Cfilter id='distort'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.08' numOctaves='2' result='noise' /%3E%3CfeDisplacementMap in='SourceGraphic' in2='noise' scale='30' xChannelSelector='R' yChannelSelector='G' /%3E%3C/filter%3E%3C/defs%3E%3C/svg%3E");
+            background-size: cover; background-position: center;
+            opacity: 0; z-index: 25; pointer-events: none; mix-blend-mode: difference;
+            filter: contrast(200%) grayscale(100%);
+        }
+
+        /* 區域觸發的新驚嚇 */
+        #location-scare-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 800 600' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='%23000' /%3E%3Cg filter='url(%23d)'%3E%3Ccircle cx='400' cy='300' r='200' fill='%23fff' filter='blur(10px)'/%3E%3Cpath d='M250 350 Q400 500 550 350 Q400 450 250 350' fill='%23000'/%3E%3Cpath d='M250 350 Q400 400 550 350' stroke='%23fff' stroke-width='10' fill='none'/%3E%3Ccircle cx='300' cy='200' r='50' fill='%23000'/%3E%3Ccircle cx='500' cy='200' r='50' fill='%23000'/%3E%3Ccircle cx='300' cy='200' r='10' fill='%23fff'/%3E%3Ccircle cx='500' cy='200' r='10' fill='%23fff'/%3E%3C/g%3E%3Cdefs%3E%3Cfilter id='d'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.1' numOctaves='3' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='40' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3C/defs%3E%3C/svg%3E");
+            background-size: cover; background-position: center;
+            opacity: 0; z-index: 26; pointer-events: none; mix-blend-mode: color-dodge;
+            filter: contrast(300%) hue-rotate(90deg);
+        }
+
+        @keyframes grain { 0% { transform: translate(0, 0); } 50% { transform: translate(-1px, 1px); } 100% { transform: translate(1px, -1px); } }
+
+        /* --- UI 與引導系統 --- */
+        #ui-layer { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            pointer-events: none; z-index: 10; padding: 40px; box-sizing: border-box; 
+            opacity: 0; transition: opacity 2s; font-family: 'Special Elite', 'Noto Serif TC', monospace;
+            font-size: 16px; color: #aaa; text-shadow: 1px 1px 3px #000;
+        }
+        
+        #rec-indicator { position: absolute; top: 40px; left: 40px; display: flex; align-items: center; gap: 10px; letter-spacing: 2px;}
+        #rec-dot { width: 12px; height: 12px; background-color: #900; border-radius: 50%; animation: blink 1.5s infinite; }
+        
+        /* 任務指引追蹤器 */
+        #objective-tracker {
+            position: absolute; top: 80px; left: 40px;
+            font-family: 'Noto Serif TC', serif; font-size: 15px; color: #ddd;
+            background: rgba(0,0,0,0.5); padding: 10px 15px; border-left: 3px solid #8a0303;
+            letter-spacing: 2px; line-height: 1.5; transition: all 0.5s ease;
+        }
+        .obj-highlight { color: #ff4444; font-weight: bold; text-shadow: 0 0 5px #f00; }
+
+        #play-indicator { position: absolute; top: 40px; right: 40px; letter-spacing: 2px; opacity: 0.5;}
+        
+        #battery { position: absolute; bottom: 40px; right: 40px; display: flex; align-items: center; gap: 4px; opacity: 0.6; }
+        .bat-box { border: 1px solid #aaa; padding: 2px; display: flex; gap: 2px; width: 40px; height: 12px;}
+        .bat-cell { background: #aaa; flex: 1; animation: batFlicker 10s infinite;}
+        .bat-tip { width: 3px; height: 6px; background: #aaa; }
+
+        #timecode { position: absolute; bottom: 40px; left: 40px; letter-spacing: 3px; line-height: 1.5; opacity: 0.7;}
+
+        #crosshair { 
+            position: absolute; top: 50%; left: 50%; width: 5px; height: 5px; 
+            background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0,0,0,0.8);
+            transform: translate(-50%, -50%); border-radius: 50%; z-index: 100;
+        }
+
+        #interaction-prompt { 
+            position: absolute; top: 53%; left: 50%; transform: translateX(-50%);
+            font-family: 'Cinzel', 'Noto Serif TC', serif; font-size: 15px; color: #fff; opacity: 0; 
+            transition: opacity 0.2s ease; letter-spacing: 4px; text-shadow: 0 0 8px #000, 0 0 2px #000;
+            background: rgba(0,0,0,0.4); padding: 4px 10px; border-radius: 4px;
+        }
+
+        @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.2; } }
+        @keyframes batFlicker { 0%, 95% { opacity: 1; } 96%, 99% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        /* --- 選單與狀態畫面 --- */
+        .screen { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: #020202; 
+            display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; z-index: 30;
+        }
+        
+        .menu-box { text-align: center; width: 800px; display: flex; flex-direction: column; align-items: center; }
+
+        .menu-title { 
+            font-family: 'Cinzel', 'Noto Serif TC', serif; font-weight: 900;
+            font-size: 72px; margin: 0 0 60px 0; color: #5a0202; 
+            text-shadow: 0 0 30px rgba(90, 2, 2, 0.5); letter-spacing: 15px; text-indent: 15px; 
+        }
+        
+        .controls { 
+            font-family: 'Special Elite', 'Noto Serif TC', monospace;
+            color: #666; font-size: 14px; margin: 20px 0 50px 0; 
+            display: flex; flex-direction: column; gap: 12px; text-align: center; letter-spacing: 2px;
+        }
+        .controls p { margin: 0; }
+        .controls-hint { color: #8a0303; margin-top: 20px; font-size: 14px; font-family: 'Cinzel', 'Noto Serif TC', serif; letter-spacing: 4px;}
+        
+        .diff-container { display: flex; justify-content: center; gap: 40px; margin: 30px 0 60px 0; }
+        
+        button { 
+            background: transparent; border: none; color: #555; 
+            font-family: 'Cinzel', 'Noto Serif TC', serif; font-size: 18px; padding: 10px 15px; 
+            cursor: pointer; transition: all 0.4s ease; letter-spacing: 6px;
+            position: relative; text-transform: uppercase; outline: none;
+        }
+        button::after {
+            content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+            width: 0; height: 1px; background-color: #8a0303; transition: width 0.3s ease;
+        }
+        button:hover { color: #a00; text-shadow: 0 0 10px rgba(170,0,0,0.6); }
+        button:hover::after { width: 100%; }
+        
+        .btn-active { color: #8a0303; font-weight: bold; }
+        .btn-active::after { width: 100%; }
+
+        #btn-start { font-size: 24px; color: #888; letter-spacing: 10px; margin-top: 20px;}
+        #btn-start:hover { color: #fff; text-shadow: 0 0 15px rgba(255,255,255,0.5); }
+        #btn-start::after { background-color: #fff; }
+
+        /* 快樂寶寶模式按鈕 */
+        #btn-happy { color: #888; }
+        #btn-happy:hover { color: #ffcc44; text-shadow: 0 0 10px rgba(255,200,50,0.7); }
+        #btn-happy:hover::after { width: 100%; background-color: #ffcc44; }
+        #btn-happy.btn-active { color: #ffcc44; text-shadow: 0 0 8px rgba(255,200,50,0.5); }
+        #btn-happy.btn-active::after { background-color: #ffcc44; width: 100%; }
+
+        #happy-img-input {
+            display: none; flex-direction: column; align-items: center; gap: 8px;
+            margin-top: -10px; margin-bottom: 20px;
+        }
+        #happy-img-input label {
+            font-family: 'Special Elite', monospace; font-size: 13px; color: #ffcc44; letter-spacing: 3px;
+        }
+        #happy-img-input input[type="text"] {
+            background: rgba(255,200,50,0.05); border: 1px solid #ffcc4466;
+            color: #ddd; font-family: 'Special Elite', monospace; font-size: 13px;
+            padding: 6px 12px; width: 360px; letter-spacing: 1px; outline: none;
+            transition: border-color 0.3s;
+        }
+        #happy-img-input input[type="text"]:focus { border-color: #ffcc44; }
+        #happy-img-input .or-divider {
+            color: #555; font-family: 'Special Elite', monospace; font-size: 12px; letter-spacing: 4px;
+        }
+        #happy-url-status {
+            font-family: 'Special Elite', monospace; font-size: 12px; letter-spacing: 2px; min-height: 16px;
+        }
+        #happy-url-status.ok { color: #88cc44; }
+        #happy-url-status.err { color: #cc4444; }
+        #happy-url-status.loading { color: #aaa; }
+
+        #happy-img-preview {
+            display: none; margin-top: 8px;
+            width: 80px; height: 80px; object-fit: contain;
+            border: 1px solid #ffcc4466; background: rgba(0,0,0,0.4);
+        }
+        #btn-crop {
+            display: none; margin-top: 4px;
+            background: transparent; border: 1px solid #ffcc4466;
+            color: #ffcc44; font-family: 'Special Elite', monospace;
+            font-size: 12px; letter-spacing: 3px; padding: 4px 14px;
+            cursor: pointer; transition: all 0.3s;
+        }
+        #btn-crop:hover { background: rgba(255,200,50,0.1); border-color: #ffcc44; }
+
+        /* 裁切工具 Modal */
+        #crop-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 50;
+            flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+        }
+        #crop-modal.active { display: flex; }
+        #crop-label {
+            font-family: 'Cinzel', serif; font-size: 14px; color: #ffcc44; letter-spacing: 4px;
+        }
+        #crop-wrap {
+            position: relative; cursor: crosshair;
+            border: 1px solid #ffcc4466;
+        }
+        #crop-canvas { display: block; max-width: 80vw; max-height: 60vh; }
+        #crop-select {
+            position: absolute; border: 2px solid #ffcc44;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.55);
+            pointer-events: none;
+        }
+        .crop-btns { display: flex; gap: 20px; }
+        .crop-btns button {
+            background: transparent; border: 1px solid;
+            font-family: 'Special Elite', monospace; font-size: 13px;
+            letter-spacing: 3px; padding: 6px 20px; cursor: pointer; transition: all 0.3s;
+        }
+        #btn-crop-confirm { border-color: #ffcc44; color: #ffcc44; }
+        #btn-crop-confirm:hover { background: rgba(255,200,50,0.15); }
+        #btn-crop-cancel  { border-color: #555; color: #777; }
+        #btn-crop-cancel:hover  { border-color: #999; color: #aaa; }
+
+        /* 裁切 Modal */
+        #crop-modal {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.92); z-index: 50;
+            justify-content: center; align-items: center; flex-direction: column; gap: 16px;
+        }
+        #crop-modal.active { display: flex; }
+        #crop-title {
+            font-family: 'Cinzel', serif; color: #ffcc44; letter-spacing: 4px; font-size: 14px;
+        }
+        #crop-hint {
+            font-family: 'Special Elite', monospace; color: #666; font-size: 12px; letter-spacing: 2px;
+        }
+        #crop-canvas {
+            cursor: crosshair;
+            border: 1px solid #ffcc4433;
+            max-width: 90vw; max-height: 65vh;
+        }
+        #crop-buttons { display: flex; gap: 24px; }
+        #crop-confirm {
+            font-family: 'Cinzel', serif; font-size: 14px; letter-spacing: 4px;
+            color: #ffcc44; background: transparent; border: 1px solid #ffcc4466;
+            padding: 8px 24px; cursor: pointer; transition: all 0.3s;
+        }
+        #crop-confirm:hover { background: rgba(255,200,50,0.1); border-color: #ffcc44; }
+        #crop-cancel {
+            font-family: 'Cinzel', serif; font-size: 14px; letter-spacing: 4px;
+            color: #555; background: transparent; border: 1px solid #333;
+            padding: 8px 24px; cursor: pointer; transition: all 0.3s;
+        }
+        #crop-cancel:hover { color: #888; border-color: #555; }
+
+
+        .pause-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+        /* 退回主畫面按鈕的特殊樣式 */
+        #btn-quit {
+            font-size: 14px;
+            color: #666;
+            margin-top: 30px;
+            letter-spacing: 4px;
+        }
+        #btn-quit:hover {
+            color: #8a0303;
+            text-shadow: 0 0 5px rgba(138,3,3,0.5);
+        }
+
+        #note-overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.95); z-index: 20; display: none; 
+            justify-content: center; align-items: center; flex-direction: column; cursor: pointer;
+        }
+        #note-paper { 
+            width: 50%; max-width: 600px; padding: 50px; 
+            color: #ddd; font-family: 'Special Elite', 'Noto Serif TC', monospace; font-size: 18px; 
+            line-height: 1.8; text-shadow: 0 0 2px rgba(255,255,255,0.2);
+            border-left: 2px solid #333; pointer-events: none;
+        }
+        
+        #pause-screen, #game-over-screen, #victory-screen { display: none; background: rgba(0,0,0,0.95); }
+        .large-text { font-family: 'Cinzel', 'Noto Serif TC', serif; font-size: 60px; letter-spacing: 15px; color: #444; margin-bottom: 40px;}
+        .dead-text { color: #700; text-shadow: 0 0 40px #f00; }
+
+        /* 裁切 Modal */
+        #crop-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.92); z-index: 100;
+            flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+        }
+        #crop-title { font-family: 'Cinzel', serif; font-size: 15px; color: #ffcc44; letter-spacing: 5px; }
+        #crop-hint { font-family: 'Special Elite', monospace; font-size: 12px; color: #666; letter-spacing: 2px; }
+        #crop-canvas { cursor: crosshair; border: 1px solid #ffcc4433; display: block; max-width: 88vw; max-height: 62vh; }
+        #crop-size-label { font-family: 'Special Elite', monospace; font-size: 12px; color: #888; letter-spacing: 3px; min-height: 16px; }
+        #crop-actions { display: flex; gap: 28px; }
+        #crop-actions button { font-family: 'Cinzel', serif; font-size: 13px; letter-spacing: 5px; background: transparent; border: 1px solid; padding: 8px 22px; cursor: pointer; transition: all 0.3s; }
+        #btn-crop-confirm { color: #ffcc44; border-color: #ffcc4466; }
+        #btn-crop-confirm:hover { color: #fff; background: rgba(255,200,50,0.12); border-color: #ffcc44; }
+        #btn-crop-reset { color: #666; border-color: #333; }
+        #btn-crop-reset:hover { color: #aaa; border-color: #666; }
+        #btn-crop-cancel { color: #555; border-color: #333; }
+        #btn-crop-cancel:hover { color: #999; border-color: #555; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="vhs-filter"></div>
+    <div id="film-grain"></div>
+    <div class="scanlines"></div>
+    <div id="danger-static"></div>
+    <div id="jumpscare-overlay"></div>
+    <div id="location-scare-overlay"></div> 
+    
+    <div id="ui-layer">
+        <div id="rec-indicator"><div id="rec-dot"></div> REC</div>
+        <div id="play-indicator">SP ►</div>
+        
+        <div id="objective-tracker">
+            當前目標：<br>
+            <span id="obj-text">尋找散落的權限鑰匙卡 (0/3)</span>
+        </div>
+        
+        <div id="crosshair"></div>
+        <div id="interaction-prompt">互動 (INTERACT)</div>
+        
+        <div id="timecode">OCT. 31 1998<br><span id="clock-display">AM 12:00:00</span></div>
+        <div id="battery">
+            <div class="bat-box"><div class="bat-cell"></div><div class="bat-cell"></div><div class="bat-cell"></div></div>
+            <div class="bat-tip"></div>
+        </div>
+    </div>
+
+    <!-- 選單與狀態 -->
+    <div id="start-screen" class="screen">
+        <div class="menu-box">
+            <div class="menu-title">回音：深淵</div>
+            <div class="diff-container">
+                <button id="btn-practice" onclick="setDiff('PRACTICE')">練習模式</button>
+                <button id="btn-normal" class="btn-active" onclick="setDiff('NORMAL')">一般模式</button>
+                <button id="btn-hard" onclick="setDiff('HARD')">困難模式</button>
+                <button id="btn-happy" onclick="setDiff('HAPPY')"> 快樂寶寶</button>
+            </div>
+            <div id="happy-img-input">
+                <label>怪物圖片 (選填)</label>
+                <label id="happy-file-label" for="happy-img-file" style="cursor:pointer; padding:6px 18px; border:1px solid #ffcc4466; color:#ffcc44; font-size:13px; letter-spacing:2px; transition:border-color 0.3s;">📁 從電腦選擇圖片</label>
+                <input id="happy-img-file" type="file" accept="image/*" style="display:none;" />
+                <div class="or-divider">— 或貼上網址 —</div>
+                <input id="happy-img-url" type="text" placeholder="https://... (支援一般圖片網址)" />
+                <div id="happy-url-status"></div>
+                <img id="happy-img-preview" alt="預覽" />
+            </div>
+            <div class="controls">
+                <p>W A S D — 移動</p>
+                <p>SHIFT — 衝刺</p>
+                <p>C — 蹲下</p>
+                <p>E / 左鍵 — 互動</p>
+                <p class="controls-hint">遵循畫面左上角的任務指引。不要被發現。</p>
+            </div>
+            <button id="btn-start">進入深淵</button>
+        </div>
+    </div>
+
+    <div id="pause-screen" class="screen">
+        <div class="large-text">遊戲暫停</div>
+        <div class="pause-buttons">
+            <button id="btn-resume">繼續</button>
+            <button id="btn-quit" onclick="location.reload()">放棄探索 (回主畫面)</button>
+        </div>
+    </div>
+
+    <div id="game-over-screen" class="screen">
+        <div class="large-text dead-text">你死了</div>
+        <button onclick="location.reload()">甦醒</button>
+    </div>
+
+    <div id="victory-screen" class="screen">
+        <div class="large-text" style="color: #aaa;">生還</div>
+        <button onclick="location.reload()">返回</button>
+    </div>
+
+    <div id="note-overlay">
+        <div id="note-paper"></div>
+        <div style="margin-top:50px; font-family: 'Cinzel', 'Noto Serif TC', serif; font-size: 16px; color: #555; letter-spacing: 4px; pointer-events: none;">點擊畫面以關閉</div>
+    </div>
+
+    <!-- 裁切 Modal -->
+    <div id="crop-modal">
+        <div id="crop-title">裁切圖片</div>
+        <div id="crop-hint">拖曳選取要保留的區域</div>
+        <canvas id="crop-canvas"></canvas>
+        <div id="crop-buttons">
+            <button id="crop-confirm">確認裁切</button>
+            <button id="crop-cancel">取消</button>
+        </div>
+    </div>
+
+    <div id="game-container"></div>
+
+    <script>
+        let scene, camera, renderer, controls;
+        let lastTime = performance.now();
+        
+        let gameDifficulty = 'NORMAL'; 
+        let gamePhase = 'INVESTIGATE'; 
+        let gameState = 'START'; 
+        
+        let cardsFound = 0;
+        const totalCards = 3;
+        let cameraTrauma = 0;
+        let locationScareTriggered = false;
+        
+        const storyNotes = [
+            "檔案 #01\n\n主要出口已被鎖定。我必須在設施內找到 3 張權限覆寫鑰匙卡來重啟系統。\n\n這裡的氣氛很沉重... 我一直聽到不屬於我的腳步聲。",
+            "檔案 #02\n\n無論在這些走廊遊蕩的是什麼，它似乎完全依賴視覺。它無法看透牆壁或置物櫃。\n\n如果被發現，快跑。打破它的視線並躲進金屬置物櫃裡。或者，蹲下並爬過結構的破口處。它的體型太大，無法跟蹤進去。",
+            "檔案 #03\n\n警告：系統覆寫將觸發設施警報。\n\n一旦拔出最後一張鑰匙卡，所有的潛行都將失效。警報會響起，出口會亮起綠燈。\n\n拿著這張卡，不要回頭，全速衝向出口。"
+        ];
+
+        // 穩定的 UI 更新邏輯
+        function updateObjective() {
+            const objText = document.getElementById('obj-text');
+            const progress = `(${cardsFound}/${totalCards})`;
+            
+            if (gamePhase === 'INVESTIGATE') {
+                objText.innerHTML = `尋找散落的權限鑰匙卡 ${progress}`;
+            } else if (gamePhase === 'HUNTED') {
+                objText.innerHTML = `<span class="obj-highlight">警告：系統偵測到未知實體。<br>找出最後的鑰匙卡！ ${progress}</span>`;
+            } else if (gamePhase === 'ESCAPE') {
+                objText.innerHTML = `<span class="obj-highlight">警報觸發！<br>全速逃往綠色緊急出口！ ${progress}</span>`;
+            }
+        }
+
+        const mapLayout = [
+            "WWWWWWWWWWWWWWWWWWWWWWWW",
+            "W111111W222222W33333333W",
+            "W111111C222222C33333333W", 
+            "W111111W222222W33333333W",
+            "W111111C222222C33333333W",
+            "W111111W222222W33333333W",
+            "WWDDWWWWWWDDWWWWWWDDWWWW",
+            "S______________________E",
+            "WWWWWWWWWWWWWWWWWWWWWWWW"
+        ];
+        
+        const CELL_SIZE = 4.5; 
+        const WALL_HEIGHT = 4.5;
+        let grid = []; let colliders = []; let wallMeshes = []; let interactables = []; let globalLights = [];
+        let roomCells = { '1':[], '2':[], '3':[], '_':[] };
+        let startPosition = new THREE.Vector3();
+
+        const player = {
+            height: 1.7, crouchHeight: 0.8, radius: 0.35, 
+            walkSpeed: 3.2, sprintSpeed: 6.8, crouchSpeed: 1.8,
+            velocity: new THREE.Vector3(), direction: new THREE.Vector3(),
+            isCrouching: false, isHidden: false
+        };
+        const keys = { w: false, a: false, s: false, d: false, shift: false, c: false };
+
+        let animStartPos = new THREE.Vector3(); let animTargetPos = new THREE.Vector3();
+        let animStartQuat = new THREE.Quaternion(); let animTargetQuat = new THREE.Quaternion();
+        let animProgress = 0; let animDuration = 0.5; 
+        let isEnteringLocker = false; let activeLocker = null;
+
+        window.setDiff = function(diff) {
+            gameDifficulty = diff;
+            document.querySelectorAll('.diff-container button').forEach(b => b.classList.remove('btn-active'));
+            document.getElementById('btn-' + diff.toLowerCase()).classList.add('btn-active');
+            document.getElementById('happy-img-input').style.display = diff === 'HAPPY' ? 'flex' : 'none';
+        }
+
+        // ── 裁切系統 ──────────────────────────────────────────
+        let happyCroppedDataUrl = null;  // 最終裁切後的 dataURL
+        let cropSourceImg = null;        // 原始 Image 物件
+
+        const cropCanvas = document.getElementById('crop-canvas');
+        const cropCtx = cropCanvas.getContext('2d');
+        let cropRect = { x:0, y:0, w:0, h:0 };  // 畫布座標
+        let dragStart = null;
+        let isDragging = false;
+        // 畫布內容對應到原圖的縮放比
+        let cropScale = 1;
+        let cropOffsetX = 0, cropOffsetY = 0;
+
+        function openCropModal(dataUrl) {
+            const img = new Image();
+            img.onload = () => {
+                cropSourceImg = img;
+                // 計算顯示尺寸：限制在 90vw / 65vh 內
+                const maxW = Math.min(window.innerWidth * 0.88, 900);
+                const maxH = Math.min(window.innerHeight * 0.62, 600);
+                cropScale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+                const dw = Math.round(img.naturalWidth  * cropScale);
+                const dh = Math.round(img.naturalHeight * cropScale);
+                cropCanvas.width  = dw;
+                cropCanvas.height = dh;
+                cropOffsetX = 0; cropOffsetY = 0;
+                // 預設全選
+                cropRect = { x:0, y:0, w:dw, h:dh };
+                drawCropOverlay();
+                document.getElementById('crop-modal').classList.add('active');
+            };
+            img.src = dataUrl;
+        }
+
+        function drawCropOverlay() {
+            cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+            cropCtx.drawImage(cropSourceImg, 0, 0, cropCanvas.width, cropCanvas.height);
+            // 暗化未選取區
+            cropCtx.fillStyle = 'rgba(0,0,0,0.6)';
+            cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+            // 清除選取區（顯示原圖）
+            if(cropRect.w > 0 && cropRect.h > 0) {
+                const rx = Math.min(cropRect.x, cropRect.x + cropRect.w);
+                const ry = Math.min(cropRect.y, cropRect.y + cropRect.h);
+                const rw = Math.abs(cropRect.w);
+                const rh = Math.abs(cropRect.h);
+                cropCtx.save();
+                cropCtx.globalCompositeOperation = 'destination-out';
+                cropCtx.fillRect(rx, ry, rw, rh);
+                cropCtx.restore();
+                cropCtx.drawImage(cropSourceImg,
+                    rx/cropScale, ry/cropScale, rw/cropScale, rh/cropScale,
+                    rx, ry, rw, rh
+                );
+                // 選框邊線
+                cropCtx.strokeStyle = '#ffcc44';
+                cropCtx.lineWidth = 2;
+                cropCtx.setLineDash([6, 3]);
+                cropCtx.strokeRect(rx, ry, rw, rh);
+                cropCtx.setLineDash([]);
+                // 尺寸標示
+                cropCtx.fillStyle = '#ffcc44';
+                cropCtx.font = '12px Special Elite, monospace';
+                const label = `${Math.round(rw/cropScale)} × ${Math.round(rh/cropScale)}`;
+                cropCtx.fillText(label, rx + 4, ry - 5 < 12 ? ry + 14 : ry - 5);
+            }
+        }
+
+        cropCanvas.addEventListener('mousedown', e => {
+            const r = cropCanvas.getBoundingClientRect();
+            dragStart = { x: e.clientX - r.left, y: e.clientY - r.top };
+            cropRect = { x: dragStart.x, y: dragStart.y, w: 0, h: 0 };
+            isDragging = true;
+        });
+        cropCanvas.addEventListener('mousemove', e => {
+            if(!isDragging) return;
+            const r = cropCanvas.getBoundingClientRect();
+            const cx = Math.max(0, Math.min(e.clientX - r.left, cropCanvas.width));
+            const cy = Math.max(0, Math.min(e.clientY - r.top,  cropCanvas.height));
+            cropRect.w = cx - dragStart.x;
+            cropRect.h = cy - dragStart.y;
+            drawCropOverlay();
+        });
+        cropCanvas.addEventListener('mouseup', () => { isDragging = false; });
+
+        // 觸控支援
+        cropCanvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const r = cropCanvas.getBoundingClientRect();
+            const t = e.touches[0];
+            dragStart = { x: t.clientX - r.left, y: t.clientY - r.top };
+            cropRect = { x: dragStart.x, y: dragStart.y, w: 0, h: 0 };
+            isDragging = true;
+        }, { passive: false });
+        cropCanvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            if(!isDragging) return;
+            const r = cropCanvas.getBoundingClientRect();
+            const t = e.touches[0];
+            const cx = Math.max(0, Math.min(t.clientX - r.left, cropCanvas.width));
+            const cy = Math.max(0, Math.min(t.clientY - r.top,  cropCanvas.height));
+            cropRect.w = cx - dragStart.x;
+            cropRect.h = cy - dragStart.y;
+            drawCropOverlay();
+        }, { passive: false });
+        cropCanvas.addEventListener('touchend', () => { isDragging = false; });
+
+        document.getElementById('crop-confirm').addEventListener('click', () => {
+            const rx = Math.round(Math.min(cropRect.x, cropRect.x + cropRect.w));
+            const ry = Math.round(Math.min(cropRect.y, cropRect.y + cropRect.h));
+            const rw = Math.round(Math.abs(cropRect.w));
+            const rh = Math.round(Math.abs(cropRect.h));
+            if(rw < 4 || rh < 4) { // 沒有拖拉就全選
+                const tmp = document.createElement('canvas');
+                tmp.width = cropSourceImg.naturalWidth; tmp.height = cropSourceImg.naturalHeight;
+                tmp.getContext('2d').drawImage(cropSourceImg, 0, 0);
+                happyCroppedDataUrl = tmp.toDataURL('image/png');
+            } else {
+                const srcX = Math.round(rx / cropScale);
+                const srcY = Math.round(ry / cropScale);
+                const srcW = Math.round(rw / cropScale);
+                const srcH = Math.round(rh / cropScale);
+                const tmp = document.createElement('canvas');
+                tmp.width = srcW; tmp.height = srcH;
+                tmp.getContext('2d').drawImage(cropSourceImg, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
+                happyCroppedDataUrl = tmp.toDataURL('image/png');
+            }
+            // 更新預覽
+            const preview = document.getElementById('happy-img-preview');
+            preview.src = happyCroppedDataUrl;
+            preview.style.display = 'block';
+            document.getElementById('crop-modal').classList.remove('active');
+        });
+
+        document.getElementById('crop-cancel').addEventListener('click', () => {
+            document.getElementById('crop-modal').classList.remove('active');
+            happyCroppedDataUrl = null;
+            document.getElementById('happy-img-preview').style.display = 'none';
+        });
+
+        // ── 圖片來源：本機上傳 ────────────────────────────────
+        document.getElementById('happy-img-file').addEventListener('change', function() {
+            const file = this.files[0];
+            if(!file) return;
+            document.getElementById('happy-img-url').value = '';
+            document.getElementById('happy-url-status').textContent = '';
+            const reader = new FileReader();
+            reader.onload = (e) => openCropModal(e.target.result);
+            reader.readAsDataURL(file);
+        });
+
+        // ── 圖片來源：網路網址 ────────────────────────────────
+        let urlDebounce = null;
+        document.getElementById('happy-img-url').addEventListener('input', function() {
+            const url = this.value.trim();
+            const status = document.getElementById('happy-url-status');
+            clearTimeout(urlDebounce);
+            if(!url) {
+                document.getElementById('happy-img-preview').style.display = 'none';
+                happyCroppedDataUrl = null;
+                status.textContent = ''; status.className = ''; return;
+            }
+            status.textContent = '載入中...'; status.className = 'loading';
+            document.getElementById('happy-img-file').value = '';
+            urlDebounce = setTimeout(async () => {
+                const proxies = [
+                    url,
+                    'https://images.weserv.nl/?url=' + encodeURIComponent(url),
+                    'https://corsproxy.io/?' + encodeURIComponent(url),
+                    'https://api.allorigins.win/raw?url=' + encodeURIComponent(url),
+                ];
+                let success = false;
+                for(const proxied of proxies) {
+                    try {
+                        const res = await fetch(proxied);
+                        if(!res.ok) continue;
+                        const blob = await res.blob();
+                        if(!blob.type.startsWith('image/')) continue;
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            status.textContent = '✓ 圖片載入成功，請裁切'; status.className = 'ok';
+                            openCropModal(e.target.result);
+                        };
+                        reader.readAsDataURL(blob);
+                        success = true; break;
+                    } catch(e) { /* 嘗試下一個 proxy */ }
+                }
+                if(!success) {
+                    status.innerHTML = '✗ 無法載入。Google 圖片請右鍵 →「在新分頁中開啟圖片」→ 複製該頁面網址';
+                    status.className = 'err';
+                }
+            }, 600);
+        });
+
+
+        const TexGen = {
+            noise: function(color, intensity=0.1) {
+                const cvs = document.createElement('canvas'); cvs.width = 256; cvs.height = 256;
+                const ctx = cvs.getContext('2d');
+                ctx.fillStyle = color; ctx.fillRect(0,0,256,256); 
+                for(let i=0; i<12000; i++) {
+                    ctx.fillStyle = Math.random() > 0.5 ? `rgba(0,0,0,${intensity})` : `rgba(255,255,255,${intensity/2})`;
+                    ctx.fillRect(Math.random()*256, Math.random()*256, 2, 2);
+                }
+                const tex = new THREE.CanvasTexture(cvs); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; 
+                return tex;
+            },
+            tiles: function() {
+                const cvs = document.createElement('canvas'); cvs.width = 256; cvs.height = 256;
+                const ctx = cvs.getContext('2d');
+                ctx.fillStyle = '#050505'; ctx.fillRect(0,0,256,256);
+                ctx.fillStyle = '#111111'; ctx.fillRect(2, 2, 124, 124); ctx.fillRect(130, 130, 124, 124);
+                ctx.fillStyle = '#0a0a0a'; ctx.fillRect(130, 2, 124, 124); ctx.fillRect(2, 130, 124, 124);
+                const tex = new THREE.CanvasTexture(cvs); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(CELL_SIZE/2, CELL_SIZE/2);
+                return tex;
+            },
+            blood: function() {
+                const cvs = document.createElement('canvas'); cvs.width = 512; cvs.height = 512;
+                const ctx = cvs.getContext('2d');
+                ctx.clearRect(0,0,512,512);
+                for(let i=0; i<25; i++) {
+                    ctx.beginPath();
+                    const x = 256 + (Math.random()-0.5)*300;
+                    const y = 256 + (Math.random()-0.5)*300;
+                    const r = Math.random() * 30 + 5;
+                    ctx.arc(x, y, r, 0, Math.PI*2);
+                    ctx.fillStyle = `rgba(${Math.floor(Math.random()*50 + 50)}, 0, 0, ${Math.random()*0.5 + 0.3})`;
+                    ctx.fill();
+                }
+                ctx.beginPath(); ctx.moveTo(256,256); ctx.lineTo(100,400); 
+                ctx.strokeStyle = 'rgba(80,0,0,0.4)'; ctx.lineWidth = 15; ctx.stroke();
+                const tex = new THREE.CanvasTexture(cvs); return tex;
+            },
+            blackboard: function() {
+                const cvs = document.createElement('canvas'); cvs.width = 1024; cvs.height = 512;
+                const ctx = cvs.getContext('2d');
+                ctx.fillStyle = '#15221b'; ctx.fillRect(0,0,1024,512); 
+                for(let i=0; i<10000; i++) {
+                    ctx.fillStyle = `rgba(255,255,255,${Math.random()*0.05})`;
+                    ctx.fillRect(Math.random()*1024, Math.random()*512, 3, 3);
+                }
+                ctx.fillStyle = 'rgba(255,255,255,0.7)'; 
+                ctx.font = 'bold 60px "Noto Serif TC"';
+                ctx.fillText('他們在看著', 100, 150);
+                ctx.font = '50px "Special Elite"';
+                ctx.fillText('WHY WHY WHY WHY', 400, 250);
+                ctx.font = 'bold 80px "Noto Serif TC"';
+                ctx.fillStyle = 'rgba(200,50,50,0.8)';
+                ctx.fillText('不要回頭', 150, 400);
+                ctx.beginPath(); ctx.moveTo(50,50); ctx.lineTo(900,450); 
+                ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 5; ctx.stroke();
+                const tex = new THREE.CanvasTexture(cvs); return tex;
+            }
+        };
+
+        const materials = {
+            wall: new THREE.MeshStandardMaterial({ map: TexGen.noise('#222', 0.4), roughness: 0.95 }), 
+            crawlWall: new THREE.MeshStandardMaterial({ map: TexGen.noise('#150a0a', 0.6), roughness: 1.0 }), 
+            floor: new THREE.MeshStandardMaterial({ map: TexGen.tiles(), roughness: 0.2 }),
+            ceiling: new THREE.MeshStandardMaterial({ color: 0x020202, roughness: 1.0 }),
+            metal: new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.8 }),
+            wood: new THREE.MeshStandardMaterial({ color: 0x110a05, roughness: 0.9 }),
+            card: new THREE.MeshStandardMaterial({ color: 0xffaaaa, roughness: 0.3, emissive: 0x330000 }),
+            monsterSkin: new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 1.0, metalness: 0.0 }),
+            blood: new THREE.MeshBasicMaterial({ map: TexGen.blood(), transparent: true, opacity: 0.8, depthWrite: false }),
+            blackboard: new THREE.MeshStandardMaterial({ map: TexGen.blackboard(), roughness: 0.8 })
+        };
+
+        const bookColors = [0x550000, 0x002255, 0x114411, 0x333333];
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const AudioSys = {
+            master: null,
+            init: function() {
+                if(audioCtx.state === 'suspended') audioCtx.resume();
+                this.master = audioCtx.createGain(); this.master.gain.value = 0.5; this.master.connect(audioCtx.destination);
+                this.ambientLoop();
+            },
+            play: function(freq, type, dur, vol, detune=0) {
+                if(!this.master) return;
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.type = type; osc.frequency.value = freq; osc.detune.value = detune;
+                gain.gain.setValueAtTime(0, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+                osc.connect(gain); gain.connect(this.master); osc.start(); osc.stop(audioCtx.currentTime + dur);
+            },
+            ambientLoop: function() {
+                if(['DEAD','VICTORY'].includes(gameState)) return;
+                this.play(25 + Math.random()*15, 'sine', 12, 0.3);
+                if(gamePhase === 'HUNTED') this.play(70, 'sawtooth', 4, 0.08, Math.random()*40);
+                setTimeout(() => this.ambientLoop(), 6000 + Math.random()*6000);
+            },
+            step: function(run) { this.play(run ? 40 : 60, 'triangle', 0.15, run ? 0.3 : 0.1); },
+            slam: function() { this.play(30, 'square', 0.8, 0.9); this.play(50, 'sawtooth', 0.5, 0.7); },
+            monsterScream: function() {
+                this.play(35, 'sawtooth', 3.0, 1.0); 
+                this.play(1000, 'square', 2.0, 0.4, 500); 
+            },
+            jumpscare: function() {
+                this.play(800, 'sawtooth', 0.5, 1.0, 1200);
+                this.play(150, 'square', 0.8, 1.0, -500);
+            },
+            alarm: function() { 
+                if(gamePhase === 'ESCAPE' && gameState !== 'VICTORY' && gameState !== 'DEAD') {
+                    this.play(700, 'square', 0.3, 0.15);
+                    setTimeout(() => this.alarm(), 1000);
+                }
+            },
+            loudScream: function() {
+                if(!this.master) return;
+                this.play(1200, 'sawtooth', 1.5, 1.0, 400); 
+                this.play(800, 'square', 1.5, 0.8, -200);  
+                this.play(150, 'sawtooth', 2.0, 1.0, 0);   
+                
+                const bufferSize = audioCtx.sampleRate * 1.5;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) { data[i] = (Math.random() * 2 - 1) * 0.8; }
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1.5);
+                noise.connect(gain); gain.connect(this.master);
+                noise.start();
+            }
+        };
+
+        class FirstPersonController {
+            constructor(camera, domElement) {
+                this.camera = camera; this.domElement = domElement;
+                this.euler = new THREE.Euler(0, 0, 0, 'YXZ'); this.isLocked = false;
+
+                const lock = async () => { 
+                    if(!['DEAD', 'VICTORY'].includes(gameState)) {
+                        try {
+                            const promise = this.domElement.requestPointerLock();
+                            if (promise !== undefined) {
+                                promise.catch(error => {
+                                    console.warn("游標鎖定被冷卻機制阻擋:", error);
+                                });
+                            }
+                        } catch(e) { console.error(e); }
+                    }
+                };
+                
+                document.getElementById('btn-start').addEventListener('click', () => { 
+                    AudioSys.init(); lock(); 
+                    if(gameState === 'START') {
+                        document.getElementById('start-screen').style.display = 'none';
+                        document.getElementById('ui-layer').style.opacity = 1;
+                        gameState = 'PLAYING';
+                        if(gameDifficulty === 'HAPPY') {
+                            document.getElementById('vhs-filter').style.display = 'none';
+                            document.getElementById('film-grain').style.display = 'none';
+                            document.querySelector('.scanlines').style.display = 'none';
+                            document.getElementById('danger-static').style.display = 'none';
+                            scene.fog = new THREE.FogExp2(0x8aaabb, 0.018);
+                            scene.background = new THREE.Color(0x8aaabb);
+                        }
+                    }
+                });
+                
+                document.getElementById('btn-resume').addEventListener('click', lock);
+                
+                // 【核心修正】將推進階段的邏輯綁定在關閉紙條的點擊上，絕對不會因為鎖定失敗而卡關
+                document.getElementById('note-overlay').addEventListener('click', () => { 
+                    if(gameState === 'READING') {
+                        document.getElementById('note-overlay').style.display = 'none';
+                        gameState = 'PLAYING';
+                        checkPhaseProgression(); 
+                        lock(); 
+                    }
+                });
+
+                // 若滑鼠自由但遊戲在進行中，點擊背景可重新獲得控制
+                document.getElementById('game-container').addEventListener('click', () => {
+                    if (gameState === 'PLAYING' && !this.isLocked) { lock(); }
+                });
+
+                document.addEventListener('pointerlockchange', () => {
+                    this.isLocked = document.pointerLockElement === this.domElement;
+                    if (this.isLocked) {
+                        if (gameState === 'PAUSED') {
+                            gameState = 'PLAYING'; document.getElementById('pause-screen').style.display = 'none';
+                        }
+                    } else if (gameState === 'PLAYING') {
+                        gameState = 'PAUSED'; document.getElementById('pause-screen').style.display = 'flex';
+                        Object.keys(keys).forEach(k => keys[k] = false); 
+                    }
+                });
+
+                document.addEventListener('mousemove', (e) => this.onMouseMove(e));
+                document.addEventListener('keydown', (e) => this.onKeyDown(e));
+                document.addEventListener('keyup', (e) => this.onKeyUp(e));
+                document.addEventListener('mousedown', (e) => { if(e.button === 0) handleInteraction(); });
+            }
+
+            onMouseMove(event) {
+                if (!this.isLocked || ['READING', 'PAUSED', 'ANIMATING'].includes(gameState)) return;
+                const sens = 0.002;
+                this.euler.setFromQuaternion(this.camera.quaternion);
+                this.euler.y -= (event.movementX || 0) * sens;
+                this.euler.x -= (event.movementY || 0) * sens;
+                this.euler.x = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, this.euler.x));
+
+                if (player.isHidden && activeLocker) {
+                    let diff = this.euler.y - activeLocker.lookRot;
+                    while(diff < -Math.PI) diff += Math.PI*2; while(diff > Math.PI) diff -= Math.PI*2;
+                    if (diff > 0.6) this.euler.y = activeLocker.lookRot + 0.6;
+                    if (diff < -0.6) this.euler.y = activeLocker.lookRot - 0.6;
+                }
+                this.camera.quaternion.setFromEuler(this.euler);
+            }
+
+            onKeyDown(event) {
+                if(['PAUSED', 'DEAD', 'ANIMATING', 'READING'].includes(gameState)) return;
+                switch(event.code) {
+                    case 'KeyW': keys.w = true; break; case 'KeyA': keys.a = true; break;
+                    case 'KeyS': keys.s = true; break; case 'KeyD': keys.d = true; break;
+                    case 'ShiftLeft': keys.shift = true; break; case 'KeyC': keys.c = true; break; 
+                    case 'KeyE': handleInteraction(); break;
+                }
+            }
+            onKeyUp(event) {
+                switch(event.code) {
+                    case 'KeyW': keys.w = false; break; case 'KeyA': keys.a = false; break;
+                    case 'KeyS': keys.s = false; break; case 'KeyD': keys.d = false; break;
+                    case 'ShiftLeft': keys.shift = false; break; case 'KeyC': keys.c = false; break; 
+                }
+            }
+            getForward() { this.camera.getWorldDirection(player.direction); player.direction.y = 0; return player.direction.normalize(); }
+            getSide() { this.camera.getWorldDirection(player.direction); player.direction.y = 0; return player.direction.normalize().cross(this.camera.up); }
+        }
+
+        function triggerJumpscare() {
+            if(gameDifficulty === 'HAPPY') return;
+            AudioSys.jumpscare(); cameraTrauma = 1.0; 
+            const overlay = document.getElementById('jumpscare-overlay');
+            overlay.style.opacity = 1;
+            setTimeout(() => { overlay.style.opacity = 0; }, 50);
+            setTimeout(() => { overlay.style.opacity = 0.8; }, 100);
+            setTimeout(() => { overlay.style.opacity = 0; }, 200);
+        }
+
+        function triggerLocationScare() {
+            if(gameDifficulty === 'HAPPY') return;
+            AudioSys.loudScream(); cameraTrauma = 1.5; 
+            const overlay = document.getElementById('location-scare-overlay');
+            overlay.style.opacity = 1;
+            setTimeout(() => { overlay.style.opacity = 0; }, 100);
+            setTimeout(() => { overlay.style.opacity = 0.9; }, 150);
+            setTimeout(() => { overlay.style.opacity = 0; }, 300);
+            setTimeout(() => { overlay.style.opacity = 0.6; }, 400);
+            setTimeout(() => { overlay.style.opacity = 0; }, 500);
+        }
+
+        function addCol(mesh, isWall = false) {
+            mesh.updateMatrixWorld(true); const box = new THREE.Box3().setFromObject(mesh);
+            colliders.push(box); if(isWall) wallMeshes.push(mesh); 
+        }
+
+        function spawnDesk(x, z) {
+            const ox = (Math.random()-0.5) * 0.5; const oz = (Math.random()-0.5) * 0.5; const rotY = (Math.random()-0.5) * 0.4;
+            const deskGrp = new THREE.Group();
+            const top = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.05, 0.9), materials.wood); top.position.y = 0.8; deskGrp.add(top);
+            [[-0.65, -0.4], [0.65, -0.4], [-0.65, 0.4], [0.65, 0.4]].forEach(p => {
+                const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.8, 0.08), materials.metal); leg.position.set(p[0], 0.4, p[1]); deskGrp.add(leg);
+            });
+            deskGrp.position.set(x + ox, 0, z + oz); deskGrp.rotation.y = rotY; 
+            scene.add(deskGrp); addCol(deskGrp, true);
+
+            const chairGrp = new THREE.Group();
+            const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.5), materials.wood); chairSeat.position.set(0, 0.5, 0); chairGrp.add(chairSeat);
+            const chairBack = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.05), materials.wood); chairBack.position.set(0, 0.7, -0.2); chairGrp.add(chairBack);
+            [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]].forEach(p => {
+                const leg = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.5, 0.05), materials.metal); leg.position.set(p[0], 0.25, p[1]); chairGrp.add(leg);
+            });
+            chairGrp.position.set(x + ox + (Math.random()-0.5)*0.3, 0, z + oz + 0.6 + (Math.random()-0.5)*0.3);
+            chairGrp.rotation.y = rotY + (Math.random()-0.5)*1.5;
+
+            if(Math.random() < 0.3) { chairGrp.rotation.x = -Math.PI / 2 + (Math.random()-0.5)*0.5; chairGrp.position.y = 0.1; }
+            scene.add(chairGrp); addCol(chairGrp, true);
+
+            if(Math.random() < 0.4) {
+                const bookCol = bookColors[Math.floor(Math.random()*bookColors.length)];
+                const bookMat = new THREE.MeshStandardMaterial({color: bookCol, roughness: 0.8});
+                const book = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 0.4), bookMat);
+                if(Math.random() < 0.5) { book.position.set(x+ox+(Math.random()-0.5)*0.6, 0.83, z+oz+(Math.random()-0.5)*0.4); } 
+                else { book.position.set(x+ox+(Math.random()-0.5)*1.5, 0.03, z+oz+(Math.random()-0.5)*1.5); book.rotation.y = Math.random() * Math.PI; }
+                scene.add(book);
+            }
+        }
+
+        function buildClassroom(cells, roomId) {
+            if(cells.length === 0) return;
+            let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+            cells.forEach(c => {
+                if(c.px < minX) minX = c.px; if(c.px > maxX) maxX = c.px;
+                if(c.pz < minZ) minZ = c.pz; if(c.pz > maxZ) maxZ = c.pz;
+            });
+            const cx = (minX + maxX)/2; const cz = (minZ + maxZ)/2;
+
+            const roomLight = new THREE.PointLight(0xffeedd, 0.15, 18);
+            roomLight.position.set(cx, WALL_HEIGHT - 0.5, cz);
+            scene.add(roomLight); globalLights.push({light: roomLight, baseIntensity: 0.15});
+
+            for(let x = minX + 2.5; x <= maxX - 2.5; x += 3.0) {
+                for(let z = minZ + 2.5; z <= maxZ - 2.5; z += 3.0) {
+                    if(Math.random() < 0.6) spawnDesk(x, z);
+                }
+            }
+
+            const bbGrp = new THREE.Group();
+            const bbBoard = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 2.0), materials.blackboard); bbBoard.position.y = 1.6; bbGrp.add(bbBoard);
+            const bbBack = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 2.0), materials.wood); bbBack.rotation.y = Math.PI; bbBack.position.y = 1.6; bbBack.position.z = -0.05; bbGrp.add(bbBack);
+            const standL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.5, 0.1), materials.metal); standL.position.set(-1.8, 1.25, 0); bbGrp.add(standL);
+            const standR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.5, 0.1), materials.metal); standR.position.set(1.8, 1.25, 0); bbGrp.add(standR);
+            const standB = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.1, 0.8), materials.metal); standB.position.set(0, 0.05, 0); bbGrp.add(standB);
+
+            bbGrp.position.set(cx, 0, minZ + 2.0); bbGrp.rotation.y = (Math.random()-0.5) * 0.5;
+            scene.add(bbGrp); addCol(bbGrp, true);
+        }
+
+        function spawnBloodstain(x, z) {
+            const size = 3 + Math.random() * 3;
+            const bloodPlane = new THREE.Mesh(new THREE.PlaneGeometry(size, size), materials.blood);
+            bloodPlane.rotation.x = -Math.PI / 2; bloodPlane.rotation.z = Math.random() * Math.PI;
+            bloodPlane.position.set(x + (Math.random()-0.5)*2, 0.01, z + (Math.random()-0.5)*2);
+            scene.add(bloodPlane);
+        }
+
+        function createLocker(cx, cz) {
+            const px = cx * CELL_SIZE; const pz = cz * CELL_SIZE;
+            let rotY = 0; let ox = 0; let oz = 0; const edge = CELL_SIZE/2 - 0.6;
+
+            if(grid[cz-1] && (grid[cz-1][cx].type === 'W' || grid[cz-1][cx].type === 'C')) { rotY = 0; oz = -edge; } 
+            else if(grid[cz+1] && (grid[cz+1][cx].type === 'W' || grid[cz+1][cx].type === 'C')) { rotY = Math.PI; oz = edge; } 
+            else if(grid[cz][cx+1] && (grid[cz][cx+1].type === 'W' || grid[cz][cx+1].type === 'C')) { rotY = -Math.PI/2; ox = edge; } 
+            else if(grid[cz][cx-1] && (grid[cz][cx-1].type === 'W' || grid[cz][cx-1].type === 'C')) { rotY = Math.PI/2; ox = -edge; } 
+            else return; 
+
+            const grp = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.3, 3.0, 1.2), materials.metal);
+            body.position.y = 1.5; grp.add(body);
+            grp.position.set(px + ox, 0, pz + oz); grp.rotation.y = rotY; scene.add(grp); addCol(grp, true); 
+
+            const fwd = new THREE.Vector3(0,0,1).applyAxisAngle(new THREE.Vector3(0,1,0), rotY);
+            interactables.push({ 
+                type: 'locker', meshGrp: grp, 
+                pos: new THREE.Vector3(px+ox, 1.0, pz+oz).add(fwd.clone().multiplyScalar(1.0)), 
+                hidePos: new THREE.Vector3(px+ox, 1.7, pz+oz).add(fwd.clone().multiplyScalar(0.2)), 
+                exitPos: new THREE.Vector3(px+ox, player.height, pz+oz).add(fwd.clone().multiplyScalar(2.0)), 
+                lookRot: rotY + Math.PI 
+            });
+        }
+
+        let exitLight;
+
+        function buildWorld() {
+            grid = new Array(mapLayout.length).fill(0).map(() => new Array(mapLayout[0].length).fill({type: 'W', walkable: false}));
+            const floorGeo = new THREE.PlaneGeometry(CELL_SIZE, CELL_SIZE); floorGeo.rotateX(-Math.PI/2);
+            const ceilGeo = new THREE.PlaneGeometry(CELL_SIZE, CELL_SIZE); ceilGeo.rotateX(Math.PI/2);
+            const wallGeo = new THREE.BoxGeometry(CELL_SIZE, WALL_HEIGHT, CELL_SIZE);
+
+            for(let z=0; z<mapLayout.length; z++) {
+                for(let x=0; x<mapLayout[z].length; x++) {
+                    const c = mapLayout[z][x]; const px = x * CELL_SIZE; const pz = z * CELL_SIZE;
+                    grid[z][x] = { type: c, x: x, z: z, px: px, pz: pz, walkable: (c !== 'W' && c !== 'C') };
+
+                    if(c === 'W') {
+                        const wall = new THREE.Mesh(wallGeo, materials.wall);
+                        wall.position.set(px, WALL_HEIGHT/2, pz); scene.add(wall); addCol(wall, true);
+                    } else if (c === 'C') {
+                        const holeHeight = 1.2; 
+                        const topWallGeo = new THREE.BoxGeometry(CELL_SIZE, WALL_HEIGHT - holeHeight, CELL_SIZE);
+                        const topWall = new THREE.Mesh(topWallGeo, materials.crawlWall);
+                        topWall.position.set(px, holeHeight + (WALL_HEIGHT - holeHeight)/2, pz);
+                        scene.add(topWall); addCol(topWall, true); 
+
+                        const floor = new THREE.Mesh(floorGeo, materials.floor); floor.position.set(px, 0, pz); scene.add(floor);
+                        const ceil = new THREE.Mesh(ceilGeo, materials.ceiling); ceil.position.set(px, WALL_HEIGHT, pz); scene.add(ceil);
+                    } else if (c !== ' ') {
+                        const floor = new THREE.Mesh(floorGeo, materials.floor); floor.position.set(px, 0, pz); scene.add(floor);
+                        const ceil = new THREE.Mesh(ceilGeo, materials.ceiling); ceil.position.set(px, WALL_HEIGHT, pz); scene.add(ceil);
+                        
+                        if(roomCells[c]) roomCells[c].push(grid[z][x]);
+                        if(c === 'S') {
+                            startPosition.set(px, player.height, pz);
+                            // 封住出生點西側開口，使用相同牆壁材質
+                            const sealGeo = new THREE.BoxGeometry(0.5, WALL_HEIGHT, CELL_SIZE);
+                            const sWall = new THREE.Mesh(sealGeo, materials.wall);
+                            sWall.position.set(px - CELL_SIZE / 2 - 0.25, WALL_HEIGHT / 2, pz);
+                            scene.add(sWall); addCol(sWall, true);
+                        }
+                        if(c === 'E') {
+                            // 封住出口東側開口，使用相同牆壁材質
+                            const sealGeo = new THREE.BoxGeometry(0.5, WALL_HEIGHT, CELL_SIZE);
+                            const eWall = new THREE.Mesh(sealGeo, materials.wall);
+                            eWall.position.set(px + CELL_SIZE / 2 + 0.25, WALL_HEIGHT / 2, pz);
+                            scene.add(eWall); addCol(eWall, true);
+
+                            exitLight = new THREE.PointLight(0x770000, 1.0, 8); 
+                            exitLight.position.set(px - 1.5, 3.8, pz); scene.add(exitLight);
+                            interactables.push({ type: 'exit', pos: new THREE.Vector3(px-1.5, 1.5, pz) });
+                        }
+                        if(Math.random() < 0.15) spawnBloodstain(px, pz);
+                    }
+                }
+            }
+
+            buildClassroom(roomCells['1'], 1); buildClassroom(roomCells['2'], 2); buildClassroom(roomCells['3'], 3);
+
+            if(roomCells['1'].length>0) spawnCard(roomCells['1'][Math.floor(roomCells['1'].length/2)].px, 0.9, roomCells['1'][Math.floor(roomCells['1'].length/2)].pz, 0);
+            if(roomCells['2'].length>0) spawnCard(roomCells['2'][Math.floor(roomCells['2'].length/2)].px, 0.9, roomCells['2'][Math.floor(roomCells['2'].length/2)].pz, 1);
+            if(roomCells['3'].length>0) spawnCard(roomCells['3'][Math.floor(roomCells['3'].length/2)].px, 0.9, roomCells['3'][Math.floor(roomCells['3'].length/2)].pz, 2);
+
+            roomCells['_'].forEach((c, i) => {
+                if(i%4===0 && i>2 && i<roomCells['_'].length-3) createLocker(c.x, c.z);
+                if(i%6===0) { 
+                    const l = new THREE.PointLight(0xffeedd, 0.12, 12); l.position.set(c.px, WALL_HEIGHT-0.5, c.pz); scene.add(l);
+                    globalLights.push({light: l, baseIntensity: 0.12});
+                }
+            });
+        }
+
+        function spawnCard(x, y, z, id) {
+            const cardGrp = new THREE.Group();
+            const card = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.05, 0.3), materials.card);
+            cardGrp.position.set(x, y, z); cardGrp.rotation.y = Math.random(); 
+            cardGrp.add(card); scene.add(cardGrp);
+            
+            const l = new THREE.PointLight(0xaa0000, 0.8, 2.0); l.position.set(x, y+0.2, z); scene.add(l);
+            interactables.push({ type: 'card', data: storyNotes[id], id: id, meshGrp: cardGrp, light: l, pos: new THREE.Vector3(x, y, z) });
+        }
+
+        let currentFocus = null;
+
+        function checkInteractions() {
+            currentFocus = null;
+            const prompt = document.getElementById('interaction-prompt');
+
+            if(player.isHidden || gameState === 'ANIMATING') {
+                prompt.innerText = gameState === 'ANIMATING' ? "" : "離開置物櫃 (EXIT)";
+                prompt.style.opacity = gameState === 'ANIMATING' ? 0 : 1; return;
+            }
+
+            let closest = Infinity;
+            interactables.forEach(item => {
+                const dist = camera.position.distanceTo(item.pos);
+                if(dist < 3.0) {
+                    const dir = new THREE.Vector3().subVectors(item.pos, camera.position).normalize();
+                    const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
+                    if(fwd.angleTo(dir) < 0.4 && dist < closest) { closest = dist; currentFocus = item; }
+                }
+            });
+
+            if(currentFocus) {
+                prompt.style.opacity = 1;
+                if(currentFocus.type === 'card') prompt.innerText = "拾取鑰匙卡並閱讀 (READ)";
+                else if(currentFocus.type === 'locker') prompt.innerText = "躲藏 (HIDE)";
+                else if(currentFocus.type === 'exit') {
+                    // 根據遊戲階段顯示不同的大門提示
+                    prompt.innerText = gamePhase === 'ESCAPE' ? "逃脫 (ESCAPE)" : "未授權 - 需 3 張鑰匙卡 (LOCKED)";
+                }
+            } else { prompt.style.opacity = 0; }
+        }
+
+        // 【核心修正】嚴格的互動與連點防呆機制
+        function handleInteraction() {
+            if(gameState !== 'PLAYING') return; // 如果不是 PLAYING 狀態(例如正在閱讀、死亡、動畫中)，絕對禁止互動
+            if(player.isHidden) { triggerLockerAnim(activeLocker, false); return; }
+            
+            if(currentFocus) {
+                if(currentFocus.type === 'card') {
+                    readCard(currentFocus);
+                }
+                else if(currentFocus.type === 'locker') {
+                    triggerLockerAnim(currentFocus, true);
+                }
+                else if(currentFocus.type === 'exit' && gamePhase === 'ESCAPE') {
+                    gameState = 'VICTORY'; document.exitPointerLock();
+                    document.getElementById('victory-screen').style.display = 'flex';
+                    document.getElementById('ui-layer').style.display = 'none';
+                }
+            }
+        }
+
+        function triggerLockerAnim(locker, enter) {
+            AudioSys.slam(); gameState = 'ANIMATING'; isEnteringLocker = enter;
+            activeLocker = locker; animProgress = 0;
+            animStartPos.copy(camera.position); animStartQuat.copy(camera.quaternion);
+
+            if(enter) {
+                animTargetPos.copy(locker.hidePos); animTargetQuat.setFromEuler(new THREE.Euler(0, locker.lookRot, 0, 'YXZ'));
+                document.getElementById('vhs-filter').style.background = "radial-gradient(circle at center, transparent 5%, rgba(0,0,0,0.99) 45%)";
+            } else {
+                animTargetPos.copy(locker.exitPos); animTargetQuat.copy(animStartQuat); 
+                document.getElementById('vhs-filter').style.background = "radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.85) 100%)";
+            }
+        }
+
+        function readCard(card) {
+            if (gameState === 'READING') return; // 防呆：避免連續執行
+            gameState = 'READING'; 
+            document.exitPointerLock();
+            
+            document.getElementById('note-overlay').style.display = 'flex';
+            document.getElementById('note-paper').innerText = card.data;
+            scene.remove(card.meshGrp); scene.remove(card.light);
+            
+            // 將拾取的卡片移出陣列並清空指標
+            interactables = interactables.filter(i => i !== card);
+            currentFocus = null; 
+            
+            cardsFound++; 
+            updateObjective(); 
+
+            if(cardsFound === 2) { triggerJumpscare(); }
+        }
+
+        let monsters = [];
+
+        function triggerAwakeningPhase() {
+            gamePhase = 'HUNTED';
+            if(gameDifficulty !== 'HAPPY') {
+                AudioSys.monsterScream(); cameraTrauma = 0.5; 
+                scene.fog.color.setHex(0x050a0a); 
+                globalLights.forEach(item => { item.light.color.setHex(0xaabbbb); item.baseIntensity = 0.10; });
+            }
+            updateObjective(); 
+
+            if(gameDifficulty === 'PRACTICE') return;
+            if(monsters.length === 0) {
+                spawnMonster(21 * CELL_SIZE, 6 * CELL_SIZE);
+                if(gameDifficulty === 'HARD') spawnMonster(4 * CELL_SIZE, 2 * CELL_SIZE);
+            }
+        }
+
+        // 【核心修正】階段推進判斷改用大於等於 (>=) 更安全
+        function checkPhaseProgression() {
+            if (cardsFound >= 2 && gamePhase === 'INVESTIGATE') {
+                triggerAwakeningPhase(); 
+            }
+            if (cardsFound >= totalCards && gamePhase !== 'ESCAPE') {
+                gamePhase = 'ESCAPE';
+                exitLight.color.setHex(0x00ff00); 
+                AudioSys.alarm(); cameraTrauma = 0.3;
+                updateObjective(); 
+                monsters.forEach(m => { m.speed = 5.5; });
+            }
+        }
+
+        function getPathBFS(startX, startZ, targetX, targetZ) {
+            const queue = [[startX, startZ]]; const visited = new Set(); visited.add(`${startX},${startZ}`);
+            const parent = {}; const dirs = [[0,-1], [0,1], [-1,0], [1,0]];
+            while(queue.length > 0) {
+                const [cx, cz] = queue.shift();
+                if(cx === targetX && cz === targetZ) break;
+                for(let [dx, dz] of dirs) {
+                    const nx = cx + dx; const nz = cz + dz;
+                    if(grid[nz] && grid[nz][nx] && grid[nz][nx].walkable) {
+                        const key = `${nx},${nz}`;
+                        if(!visited.has(key)) { visited.add(key); parent[key] = `${cx},${cz}`; queue.push([nx, nz]); }
+                    }
+                }
+            }
+            let curr = `${targetX},${targetZ}`; const path = [];
+            while(curr && curr !== `${startX},${startZ}`) {
+                const parts = curr.split(','); path.push({x: parseInt(parts[0]), z: parseInt(parts[1])}); curr = parent[curr];
+            }
+            return path.reverse();
+        }
+
+        function getRandomWalkableCell() {
+            const walkable = [];
+            for(let z=0; z<grid.length; z++) {
+                for(let x=0; x<grid[z].length; x++) { if(grid[z][x].walkable) walkable.push(grid[z][x]); }
+            }
+            return walkable[Math.floor(Math.random() * walkable.length)];
+        }
+
+        const raycaster = new THREE.Raycaster();
+        
+        function checkLineOfSight(monster) {
+            if(player.isHidden) return false;
+            const mPos = monster.mesh.position.clone(); mPos.y = 2.5; 
+            const pPos = camera.position.clone(); 
+            const dir = new THREE.Vector3().subVectors(pPos, mPos); const dist = dir.length();
+            if(dist > 25) return false; 
+            dir.normalize();
+            // HAPPY 模式怪物 root 不旋轉，改用全向視野（360°）
+            if(gameDifficulty !== 'HAPPY') {
+                const fwd = new THREE.Vector3(0,0,1).applyEuler(monster.mesh.rotation);
+                if(fwd.angleTo(dir) > Math.PI / 1.8) return false;
+            }
+            raycaster.set(mPos, dir);
+            const intersects = raycaster.intersectObjects(wallMeshes);
+            if(intersects.length > 0 && intersects[0].distance < dist) return false; 
+            return true; 
+        }
+
+        function buildMonsterRig() {
+            const root = new THREE.Group();
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.4, 0.4), materials.monsterSkin); torso.position.y = 1.8; root.add(torso);
+            const headGrp = new THREE.Group(); headGrp.position.set(0, 3.5, 0.1);
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.5, 0.4), materials.monsterSkin); headGrp.add(head);
+            const eye1 = new THREE.PointLight(0xff0000, 1.5, 5); eye1.position.set(-0.1, 0, 0.25); headGrp.add(eye1);
+            const eye2 = new THREE.PointLight(0xff0000, 1.5, 5); eye2.position.set(0.1, 0, 0.25); headGrp.add(eye2);
+            root.add(headGrp);
+            const armGeo = new THREE.BoxGeometry(0.15, 2.2, 0.15); const legGeo = new THREE.BoxGeometry(0.2, 1.8, 0.2);
+            const lArmPivot = new THREE.Group(); lArmPivot.position.set(-0.35, 2.8, 0); root.add(lArmPivot);
+            const lArm = new THREE.Mesh(armGeo, materials.monsterSkin); lArm.position.y = -1.0; lArmPivot.add(lArm);
+            const rArmPivot = new THREE.Group(); rArmPivot.position.set(0.35, 2.8, 0); root.add(rArmPivot);
+            const rArm = new THREE.Mesh(armGeo, materials.monsterSkin); rArm.position.y = -1.0; rArmPivot.add(rArm);
+            const lLegPivot = new THREE.Group(); lLegPivot.position.set(-0.15, 1.4, 0); root.add(lLegPivot);
+            const lLeg = new THREE.Mesh(legGeo, materials.monsterSkin); lLeg.position.y = -0.8; lLegPivot.add(lLeg);
+            const rLegPivot = new THREE.Group(); rLegPivot.position.set(0.15, 1.4, 0); root.add(rLegPivot);
+            const rLeg = new THREE.Mesh(legGeo, materials.monsterSkin); rLeg.position.y = -0.8; rLegPivot.add(rLeg);
+            return { root, headGrp, limbs: {la: lArmPivot, ra: rArmPivot, ll: lLegPivot, rl: rLegPivot} };
+        }
+
+        function buildHappySmileyTex() {
+            const cvs = document.createElement('canvas'); cvs.width = 256; cvs.height = 256;
+            const ctx = cvs.getContext('2d');
+            ctx.clearRect(0, 0, 256, 256);
+            // 臉
+            ctx.beginPath(); ctx.arc(128, 128, 120, 0, Math.PI*2);
+            ctx.fillStyle = '#FFD700'; ctx.fill();
+            ctx.strokeStyle = '#B8860B'; ctx.lineWidth = 6; ctx.stroke();
+            // 左眼
+            ctx.beginPath(); ctx.arc(88, 98, 18, 0, Math.PI*2);
+            ctx.fillStyle = '#222'; ctx.fill();
+            // 右眼
+            ctx.beginPath(); ctx.arc(168, 98, 18, 0, Math.PI*2);
+            ctx.fillStyle = '#222'; ctx.fill();
+            // 微笑
+            ctx.beginPath(); ctx.arc(128, 135, 65, 0.2*Math.PI, 0.8*Math.PI);
+            ctx.strokeStyle = '#222'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.stroke();
+            return new THREE.CanvasTexture(cvs);
+        }
+
+        function buildHappySprite() {
+            const root = new THREE.Group();
+            const dummy = new THREE.Group();
+            const dataUrl = happyCroppedDataUrl;
+
+            const makePlaneWith = (tex, imgW, imgH) => {
+                // 以高度 4 單位為基準，依真實像素比例決定寬度
+                const baseH = 4.0;
+                const aspect = (imgW && imgH) ? (imgW / imgH) : 1;
+                const baseW = baseH * aspect;
+                const geo = new THREE.PlaneGeometry(baseW, baseH);
+                const mat = new THREE.MeshBasicMaterial({
+                    map: tex, transparent: true, alphaTest: 0.1,
+                    side: THREE.DoubleSide, depthWrite: true,
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+                mesh.position.y = baseH / 2;
+                root.add(mesh);
+                return { root, head: mesh, limbs: { la: dummy, ra: dummy, ll: dummy, rl: dummy } };
+            };
+
+            if(dataUrl) {
+                const img = new Image();
+                const tex = new THREE.Texture();
+                // 先用 1:1 占位，圖片載入後依真實尺寸修正幾何體
+                const rig = makePlaneWith(tex, 1, 1);
+                img.onload = () => {
+                    tex.image = img; tex.needsUpdate = true;
+                    // 重建正確比例的幾何體
+                    const h = 4.0;
+                    const w = h * (img.naturalWidth / img.naturalHeight);
+                    rig.head.geometry.dispose();
+                    rig.head.geometry = new THREE.PlaneGeometry(w, h);
+                };
+                img.src = dataUrl;
+                return rig;
+            } else {
+                const smiley = buildHappySmileyTex();
+                return makePlaneWith(smiley, 1, 1);
+            }
+        }
+
+        function spawnMonster(startX, startZ) {
+            const rig = gameDifficulty === 'HAPPY' ? buildHappySprite() : buildMonsterRig();
+            scene.add(rig.root); rig.root.position.set(startX, 0, startZ);
+            monsters.push({ mesh: rig.root, head: rig.head, limbs: rig.limbs, state: 'PATROL', speed: 2.2, path: [], walkTime: 0, lastSeenPos: null });
+        }
+
+        let pathTimer = 0;
+        function updateMonsters(delta) {
+            if(['DEAD', 'VICTORY'].includes(gameState) || monsters.length === 0) return;
+            let minDistToPlayer = Infinity;
+
+            monsters.forEach(monster => {
+                const mPos = monster.mesh.position; const pPos = camera.position;
+                const dist = mPos.distanceTo(pPos);
+                if(dist < minDistToPlayer) minDistToPlayer = dist;
+                const canSee = checkLineOfSight(monster);
+
+                if (canSee && gamePhase !== 'ESCAPE') {
+                    if(monster.state !== 'CHASE') { triggerJumpscare(); } 
+                    monster.state = 'CHASE'; monster.speed = 5.0;
+                    monster.lastSeenPos = new THREE.Vector3(pPos.x, 0, pPos.z);
+                    pathTimer += delta;
+                    if(pathTimer > 0.2) {
+                        monster.path = getPathBFS(Math.round(mPos.x/CELL_SIZE), Math.round(mPos.z/CELL_SIZE), Math.round(pPos.x/CELL_SIZE), Math.round(pPos.z/CELL_SIZE));
+                        pathTimer = 0;
+                    }
+                } else if (gamePhase === 'ESCAPE' && !player.isHidden) {
+                    monster.state = 'CHASE'; pathTimer += delta;
+                    if(pathTimer > 0.5) {
+                        monster.path = getPathBFS(Math.round(mPos.x/CELL_SIZE), Math.round(mPos.z/CELL_SIZE), Math.round(pPos.x/CELL_SIZE), Math.round(pPos.z/CELL_SIZE));
+                        pathTimer = 0;
+                    }
+                } else {
+                    if(monster.state === 'CHASE') {
+                        monster.state = 'SEARCH'; monster.speed = 3.0;
+                        if(monster.lastSeenPos) { monster.path = getPathBFS(Math.round(mPos.x/CELL_SIZE), Math.round(mPos.z/CELL_SIZE), Math.round(monster.lastSeenPos.x/CELL_SIZE), Math.round(monster.lastSeenPos.z/CELL_SIZE)); }
+                    } else if (monster.path.length === 0) {
+                        monster.state = 'PATROL'; monster.speed = 2.2;
+                        const targetCell = getRandomWalkableCell();
+                        monster.path = getPathBFS(Math.round(mPos.x/CELL_SIZE), Math.round(mPos.z/CELL_SIZE), targetCell.x, targetCell.z);
+                    }
+                }
+
+                let isMoving = false;
+                if(monster.path && monster.path.length > 0) {
+                    const nextNode = monster.path[0];
+                    const targetWorldPos = new THREE.Vector3(nextNode.x * CELL_SIZE, 0, nextNode.z * CELL_SIZE);
+                    const dir = new THREE.Vector3().subVectors(targetWorldPos, mPos); dir.y = 0;
+                    
+                    if(dir.length() > 0.2) {
+                        dir.normalize(); mPos.x += dir.x * monster.speed * delta; mPos.z += dir.z * monster.speed * delta; isMoving = true;
+                        if(gameDifficulty !== 'HAPPY') {
+                            const targetRot = Math.atan2(dir.x, dir.z);
+                            let diff = targetRot - monster.mesh.rotation.y;
+                            while(diff < -Math.PI) diff += Math.PI*2; while(diff > Math.PI) diff -= Math.PI*2;
+                            monster.mesh.rotation.y += diff * 8 * delta;
+                        }
+                    } else { monster.path.shift(); }
+                }
+
+                if(monster.state === 'CHASE' && canSee && gameDifficulty !== 'HAPPY') {
+                    monster.head.lookAt(pPos); cameraTrauma = Math.max(cameraTrauma, (10 - dist) * 0.05); 
+                }
+
+                if(isMoving && gameDifficulty !== 'HAPPY') {
+                    monster.walkTime += delta * monster.speed * 3; const s = Math.sin(monster.walkTime);
+                    monster.limbs.la.rotation.x = s * 0.9; monster.limbs.ra.rotation.x = -s * 0.9;
+                    monster.limbs.ll.rotation.x = -s * 0.9; monster.limbs.rl.rotation.x = s * 0.9;
+                } else { ['la','ra','ll','rl'].forEach(k => monster.limbs[k].rotation.x *= 0.9); }
+
+                if(dist < 1.8 && !player.isHidden && gameState !== 'ANIMATING' && gameDifficulty !== 'HAPPY') {
+                    gameState = 'DEAD'; document.exitPointerLock();
+                    document.getElementById('game-over-screen').style.display = 'flex'; 
+                    document.getElementById('ui-layer').style.display = 'none'; 
+                    AudioSys.monsterScream();
+                    camera.lookAt(monster.head.getWorldPosition(new THREE.Vector3()));
+                }
+            });
+
+            if(!player.isHidden && minDistToPlayer < 12 && gameDifficulty !== 'HAPPY') {
+                const intensity = (12 - minDistToPlayer) / 12;
+                document.getElementById('danger-static').style.opacity = intensity;
+            } else { document.getElementById('danger-static').style.opacity = 0; }
+        }
+
+        function init() {
+            scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x010101, 0.045);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: false }); 
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('game-container').appendChild(renderer.domElement);
+
+            scene.add(new THREE.AmbientLight(0x111111, 0.4)); 
+            const flash = new THREE.SpotLight(0xfffae6, 2.8, 30, Math.PI/5, 0.5, 1.5);
+            flash.position.set(0, 0, 0); flash.target.position.set(0, 0, -1);
+            camera.add(flash); camera.add(flash.target); scene.add(camera);
+
+            controls = new FirstPersonController(camera, document.body);
+            buildWorld(); camera.position.copy(startPosition);
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+            
+            setInterval(() => {
+                const d = new Date(); const ampm = d.getHours() >= 12 ? 'PM' : 'AM'; const h = d.getHours() % 12 || 12;
+                document.getElementById('clock-display').innerText = `${ampm} ${String(h).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
+            }, 1000);
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        function checkCol(pos) {
+            const pBox = new THREE.Box3(); const r = player.radius;
+            const currentHeight = player.isCrouching ? player.crouchHeight : player.height;
+            pBox.min.set(pos.x - r, 0, pos.z - r); pBox.max.set(pos.x + r, currentHeight, pos.z + r);
+            for(let b of colliders) { if(pBox.intersectsBox(b)) return true; }
+            return false;
+        }
+
+        let stepT = 0; let bobT = 0;
+
+        function gameLoop(timeRaw) {
+            const t = timeRaw / 1000; requestAnimationFrame(gameLoop);
+            if(['PAUSED', 'DEAD', 'VICTORY', 'START'].includes(gameState)) { lastTime = t; return; }
+            const delta = Math.min(t - lastTime, 0.1); lastTime = t;
+
+            if (!locationScareTriggered && gameState === 'PLAYING' && cardsFound === 1) {
+                const px = camera.position.x / CELL_SIZE;
+                const pz = camera.position.z / CELL_SIZE;
+                if (pz > 6.0 && px > 8 && px < 16) {
+                    locationScareTriggered = true;
+                    triggerLocationScare();
+                }
+            }
+
+            let shakeX = 0, shakeZ = 0;
+            if (cameraTrauma > 0) {
+                shakeX = (Math.random() - 0.5) * cameraTrauma * 0.5;
+                shakeZ = (Math.random() - 0.5) * cameraTrauma * 0.5;
+                cameraTrauma -= delta * 1.5;
+                if(cameraTrauma < 0) cameraTrauma = 0;
+            }
+
+            if(gameState === 'ANIMATING') {
+                animProgress += delta / animDuration;
+                if (animProgress >= 1.0) {
+                    camera.position.copy(animTargetPos); camera.quaternion.copy(animTargetQuat);
+                    controls.euler.setFromQuaternion(camera.quaternion);
+                    if (isEnteringLocker) { player.isHidden = true; gameState = 'PLAYING'; } 
+                    else { player.isHidden = false; activeLocker = null; gameState = 'PLAYING'; }
+                } else {
+                    const ease = animProgress < 0.5 ? 2 * animProgress * animProgress : -1 + (4 - 2 * animProgress) * animProgress;
+                    camera.position.lerpVectors(animStartPos, animTargetPos, ease);
+                    camera.quaternion.slerpQuaternions(animStartQuat, animTargetQuat, ease);
+                }
+            } 
+            else if(gameState === 'PLAYING' && !player.isHidden) {
+                let speed = player.walkSpeed; let isRun = false;
+                player.isCrouching = keys.c; 
+
+                if(keys.shift && !player.isCrouching && (keys.w||keys.a||keys.s||keys.d)) { speed = player.sprintSpeed; isRun = true; } 
+                else if(player.isCrouching) { speed = player.crouchSpeed; }
+
+                player.velocity.set(0,0,0);
+                if (keys.w) player.velocity.add(controls.getForward());
+                if (keys.s) player.velocity.sub(controls.getForward());
+                if (keys.a) player.velocity.sub(controls.getSide());
+                if (keys.d) player.velocity.add(controls.getSide());
+                
+                let isMoving = player.velocity.lengthSq() > 0.01;
+                if(isMoving) player.velocity.normalize().multiplyScalar(speed * delta);
+
+                let nx = new THREE.Vector3(camera.position.x + player.velocity.x, camera.position.y, camera.position.z);
+                let nz = new THREE.Vector3(camera.position.x, camera.position.y, camera.position.z + player.velocity.z);
+
+                if(!checkCol(nx)) camera.position.x = nx.x;
+                if(!checkCol(nz)) camera.position.z = nz.z;
+
+                const targetY = player.isCrouching ? player.crouchHeight : player.height;
+                camera.position.y += (targetY - camera.position.y) * 0.15;
+
+                if(isMoving) {
+                    bobT += delta * (isRun ? 10 : 7);
+                    camera.position.y += Math.sin(bobT) * (isRun ? 0.04 : 0.02);
+                    
+                    stepT += delta;
+                    if(stepT > (isRun ? 0.35 : (player.isCrouching ? 0.8 : 0.6))) { AudioSys.step(isRun); stepT = 0; }
+                }
+                checkInteractions();
+            }
+
+            if(player.isHidden) checkInteractions();
+
+            if(Math.random() < 0.05) {
+                globalLights.forEach(item => {
+                    const flicker = Math.random() > 0.85 ? (Math.random() * 0.1) : 0;
+                    item.light.intensity = item.baseIntensity - flicker;
+                });
+            }
+
+            updateMonsters(delta);
+
+            // Billboard：直接讓圖片平面朝向鏡頭
+            if(gameDifficulty === 'HAPPY') {
+                monsters.forEach(m => {
+                    if(m.head && m.head.isMesh) {
+                        m.head.lookAt(camera.position);
+                    }
+                });
+            }
+
+            const baseQuat = camera.quaternion.clone();
+            if (shakeX !== 0 || shakeZ !== 0) {
+                camera.rotateX(shakeX);
+                camera.rotateZ(shakeZ);
+            }
+
+            renderer.render(scene, camera);
+            camera.quaternion.copy(baseQuat);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
